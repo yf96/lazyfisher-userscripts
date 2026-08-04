@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher Ship Ops
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.0.0
+// @version      1.0.1
 // @description  One-click ship automation + target fish scan loop for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
