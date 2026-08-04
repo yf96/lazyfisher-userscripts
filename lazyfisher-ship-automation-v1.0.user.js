@@ -98,7 +98,7 @@
   function log(msg, type) {
     type = type || 'info';
     var colors = { info: '#1d9a8c', success: '#22c55e', error: '#ef4444', warn: '#f59e0b' };
-    console.log('%c[自有船] %c' + msg, 'font-weight:bold', 'color:' + (colors[type] || '#fff'));
+    console.log('%c[LF] ' + msg, 'font-weight:bold;color:' + (colors[type] || '#fff'));
     var st = document.getElementById('lf-status-text');
     if (st) { st.textContent = msg; st.style.color = colors[type]; }
   }
