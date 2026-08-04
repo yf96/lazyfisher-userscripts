@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher Ship Ops v1.0
+// @name         LazyFisher Ship Ops
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.0.0
-// @description  Auto ship operations + target fish loop
+// @description  Ship automation with target-fish-driven loop
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
