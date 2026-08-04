@@ -2,7 +2,7 @@
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
 // @version      1.3.0
-// @description  Mouse wheel horizontal scroll + drag simulate touch + text wrap
+// @description  Horizontal scroll with mouse wheel, drag-to-scroll, word-wrap fix for PC
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @grant        none
