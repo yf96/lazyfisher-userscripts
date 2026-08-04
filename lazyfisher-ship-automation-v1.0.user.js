@@ -27,7 +27,7 @@
   var saved = loadPanelState();
 
   var CONFIG = {
-    panelTitle: '\u{1F6A2} Ship Ops',
+    panelTitle: '\u{1F6A2} 自有船操作台',
     actionDelay: 800,
     longDelay: 2500,
     panelTop: saved.top != null ? saved.top : 120,
@@ -393,23 +393,23 @@
       '.lf-input-short{width:60px}' +
       '.lf-collapsed .lf-config{display:none}' +
       '</style>' +
-      '<div class="lf-header" id="lf-drag-handle" title="Drag to move">' +
+      '<div class="lf-header" id="lf-drag-handle" title="拖拽移动面板">' +
         '<span class="lf-title">' + CONFIG.panelTitle + '</span>' +
         '<div class="lf-header-controls"><button class="lf-toggle" id="lf-toggle-btn">-</button></div>' +
       '</div>' +
       '<div class="lf-buttons" id="lf-buttons">' +
-        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">Prepare+Depart</button>' +
-        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">Return</button>' +
-        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">Fish Loop</button>' +
-        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">Stop</button>' +
+        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">⚡ 一键准备+出航</button>' +
+        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">⚡ 一键返航</button>' +
+        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">🔁 目标鱼循环</button>' +
+        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">⏹ 停止</button>' +
       '</div>' +
       '<div class="lf-config" id="lf-config">' +
-        '<label class="lf-label">Target Fish</label>' +
-        '<input class="lf-input" id="lf-target-fish" placeholder="fish1,fish2,fish3" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
-        '<label class="lf-label">Max Cycles</label>' +
+        '<label class="lf-label">🎯 目标鱼</label>' +
+        '<input class="lf-input" id="lf-target-fish" placeholder="金枪鱼,旗鱼,石斑鱼" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
+        '<label class="lf-label">🔄 最大轮次</label>' +
         '<input class="lf-input lf-input-short" id="lf-max-cycles" type="number" min="1" max="999" value="' + CONFIG.maxCycles + '">' +
       '</div>' +
-      '<div class="lf-status" id="lf-status"><span id="lf-status-text">Ready</span></div>' +
+      '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
       '<div class="lf-page-indicator" id="lf-page-info">' + window.location.pathname + '</div>';
 
     document.body.appendChild(panel);
@@ -418,7 +418,7 @@
     cbtn.id = 'lf-collapsed-btn';
     cbtn.className = 'btn btn-secondary';
     cbtn.textContent = '\u{1F6A2}';
-    cbtn.title = 'Expand panel';
+    cbtn.title = '展开操作台';
     document.body.appendChild(cbtn);
 
     applyPosition(panel, cbtn);
