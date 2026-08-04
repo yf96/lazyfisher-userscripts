@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
-// @version      1.3.0
+// @version      1.3.1
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
