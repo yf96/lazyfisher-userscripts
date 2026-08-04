@@ -2,7 +2,7 @@
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
 // @version      1.3.0
-// @description  Horizontal scroll, drag-to-scroll, text word-wrap for desktop
+// @description  Desktop scroll/drag/word-wrap adaptations for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @grant        none
