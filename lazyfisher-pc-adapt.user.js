@@ -5,6 +5,7 @@
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
+// @icon         https://lazyfisher.toogle.club/pwa/fish.svg
 // @grant        none
 // @run-at       document-end
 // ==/UserScript==
