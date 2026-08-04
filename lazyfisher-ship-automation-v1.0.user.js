@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher 自有船操作台
+// @name         LazyFisher Ship Ops
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.0.0
-// @description  一键准备出海/出航/返航/取消准备 + 目标鱼自动循环
+// @description  Auto prepare/depart/return/cancel + target fish loop
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
