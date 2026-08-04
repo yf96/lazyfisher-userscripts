@@ -13,8 +13,8 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] 自有船操作台 v1.0.0 已加载');
-  console.log('[LazyFisher] 拖拽标题栏移动 | - 折叠为图标 | 点击图标展开');
+  console.log('[LazyFisher] 鑷湁鑸规搷浣滃彴 v1.0.0 宸插姞杞?);
+  console.log('[LazyFisher] 鎷栨嫿鏍囬鏍忕Щ鍔?| - 鎶樺彔涓哄浘鏍?| 鐐瑰嚮鍥炬爣灞曞紑');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
@@ -30,7 +30,7 @@
   var saved = loadPanelState();
 
   var CONFIG = {
-    panelTitle: '\u{1F6A2} 自有船操作台',
+    panelTitle: '\u{1F6A2} 鑷湁鑸规搷浣滃彴',
     actionDelay: 800,
     longDelay: 2500,
     panelTop: saved.top != null ? saved.top : 120,
@@ -42,7 +42,7 @@
 
   function getTargetFish() {
     return CONFIG.targetFishStr
-      .split(/[,，、\s]+/)
+      .split(/[,锛屻€乗s]+/)
       .map(function (s) { return s.trim(); })
       .filter(function (s) { return s.length > 0; })
       .slice(0, 5);
@@ -118,22 +118,22 @@
 
   function clickPrepare() {
     var btn = findButtonByText(BTN.prepare);
-    if (btn) { safeClick(btn); log('已点击"开始准备"', 'success'); return true; }
-    log('未找到"开始准备"按钮', 'error'); return false;
+    if (btn) { safeClick(btn); log('宸茬偣鍑?寮€濮嬪噯澶?', 'success'); return true; }
+    log('鏈壘鍒?寮€濮嬪噯澶?鎸夐挳', 'error'); return false;
   }
   function clickDepart() {
     var btn = findButtonByText(BTN.depart);
-    if (btn) { safeClick(btn); log('已点击"出航"', 'success'); return true; }
-    log('未找到"出航"按钮', 'error'); return false;
+    if (btn) { safeClick(btn); log('宸茬偣鍑?鍑鸿埅"', 'success'); return true; }
+    log('鏈壘鍒?鍑鸿埅"鎸夐挳', 'error'); return false;
   }
   function clickReturn() {
     var btn = findButtonByText(BTN.ret);
-    if (btn) { safeClick(btn); log('已点击"返航"', 'success'); return true; }
-    log('未找到"返航"按钮', 'error'); return false;
+    if (btn) { safeClick(btn); log('宸茬偣鍑?杩旇埅"', 'success'); return true; }
+    log('鏈壘鍒?杩旇埅"鎸夐挳', 'error'); return false;
   }
   function clickCancelPrep() {
     var btn = findButtonByText(BTN.cancel);
-    if (btn) { safeClick(btn); log('已点击"取消准备"', 'success'); return true; }
+    if (btn) { safeClick(btn); log('宸茬偣鍑?鍙栨秷鍑嗗"', 'success'); return true; }
     return false;
   }
   function clickConfirm() {
@@ -207,7 +207,7 @@
         if ((all[j].textContent || '').indexOf('\u63a2\u67e5\u5230\u7684\u9c7c\u7fa4') !== -1) { container = all[j]; break; }
       }
     }
-    if (!container) { log('未找到"探查到的鱼群"区域', 'warn'); return []; }
+    if (!container) { log('鏈壘鍒?鎺㈡煡鍒扮殑楸肩兢"鍖哄煙', 'warn'); return []; }
     var origScroll = container.scrollTop;
     for (var s = 0; s < container.scrollHeight; s += 150) container.scrollTop = s;
     container.scrollTop = origScroll;
@@ -230,7 +230,7 @@
       }
     }
     var arr = Array.from(names);
-    log('扫描到 ' + arr.length + ' 种鱼: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
+    log('鎵弿鍒?' + arr.length + ' 绉嶉奔: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
     return arr;
   }
 
@@ -245,7 +245,7 @@
       var match = all.find(function (f) { return f.indexOf(t) !== -1 || t.indexOf(f) !== -1; });
       if (match) found.push(t); else missing.push(t);
     }
-    log('目标: ' + targets.join(',') + ' | 找到: ' + (found.join(',') || '无') + ' | 缺少: ' + (missing.join(',') || '无'),
+    log('鐩爣: ' + targets.join(',') + ' | 鎵惧埌: ' + (found.join(',') || '鏃?) + ' | 缂哄皯: ' + (missing.join(',') || '鏃?),
       found.length === targets.length ? 'success' : 'warn');
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
@@ -253,7 +253,7 @@
   // ==================== ship operations ====================
 
   async function oneClickPrepareAndDepart() {
-    log('一键准备+出航 开始', 'info');
+    log('涓€閿噯澶?鍑鸿埅 寮€濮?, 'info');
     if (!(await ensurePage('/region'))) return;
     checkAbort();
     if (!clickPrepare()) return;
@@ -265,26 +265,26 @@
     if (await abortableSleep(CONFIG.actionDelay)) return;
     clickConfirm();
     if (await abortableSleep(CONFIG.longDelay)) return;
-    log('一键准备+出航 完成', 'success');
+    log('涓€閿噯澶?鍑鸿埅 瀹屾垚', 'success');
   }
 
   async function cancelPrepareIfNeeded() {
     if (!(await ensurePage('/region'))) return false;
     var btn = findButtonByText(BTN.cancel);
     if (btn) {
-      log('检测到准备态，先取消准备...', 'warn');
+      log('妫€娴嬪埌鍑嗗鎬侊紝鍏堝彇娑堝噯澶?..', 'warn');
       safeClick(btn);
       if (await abortableSleep(CONFIG.actionDelay)) return false;
       clickConfirm();
       if (await abortableSleep(CONFIG.longDelay)) return false;
-      log('已取消准备', 'success');
+      log('宸插彇娑堝噯澶?, 'success');
       return true;
     }
     return false;
   }
 
   async function oneClickReturn() {
-    log('一键返航 开始', 'info');
+    log('涓€閿繑鑸?寮€濮?, 'info');
     await cancelPrepareIfNeeded();
     checkAbort();
     if (!clickReturn()) { await ensurePage('/region'); clickReturn(); }
@@ -294,17 +294,17 @@
     clickConfirm();
     if (await abortableSleep(CONFIG.actionDelay)) return;
     await cancelPrepareIfNeeded();
-    log('一键返航 完成', 'success');
+    log('涓€閿繑鑸?瀹屾垚', 'success');
   }
 
   async function fullCycle() {
     var targets = getTargetFish();
     var max = CONFIG.maxCycles;
-    if (!targets.length) { log('请先在操作台输入目标鱼名称', 'error'); return; }
-    log('目标鱼循环开始 | 目标: ' + targets.join(',') + ' | 最多 ' + max + ' 轮', 'info');
+    if (!targets.length) { log('璇峰厛鍦ㄦ搷浣滃彴杈撳叆鐩爣楸煎悕绉?, 'error'); return; }
+    log('鐩爣楸煎惊鐜紑濮?| 鐩爣: ' + targets.join(',') + ' | 鏈€澶?' + max + ' 杞?, 'info');
     for (var c = 1; c <= max; c++) {
       checkAbort();
-      log('第 ' + c + '/' + max + ' 轮', 'info');
+      log('绗?' + c + '/' + max + ' 杞?, 'info');
       if (!(await ensurePage('/region', 'fullcycle'))) return;
       var tab = findButtonByText(BTN.myShip);
       if (tab) safeClick(tab);
@@ -315,25 +315,25 @@
       await oneClickPrepareAndDepart();
       checkAbort();
       await sleep(CONFIG.longDelay);
-      log('扫描探查到的鱼群...', 'info');
+      log('鎵弿鎺㈡煡鍒扮殑楸肩兢...', 'info');
       await sleep(1000);
       var result = checkTargetFish();
       if (result.allFound) {
-        log('目标鱼全部找到! (' + result.found.join(',') + ') 停止循环', 'success');
+        log('鐩爣楸煎叏閮ㄦ壘鍒? (' + result.found.join(',') + ') 鍋滄寰幆', 'success');
         return;
       }
-      log('缺少: ' + result.missing.join(',') + ' - 返航进入下一轮', 'warn');
+      log('缂哄皯: ' + result.missing.join(',') + ' - 杩旇埅杩涘叆涓嬩竴杞?, 'warn');
       await oneClickReturn();
       checkAbort();
       await sleep(CONFIG.longDelay);
       await cancelPrepareIfNeeded();
       await sleep(CONFIG.actionDelay);
     }
-    log('已达最大轮次，目标鱼未找全', 'warn');
+    log('宸茶揪鏈€澶ц疆娆★紝鐩爣楸兼湭鎵惧叏', 'warn');
     await oneClickReturn();
     await sleep(CONFIG.actionDelay);
     await cancelPrepareIfNeeded();
-    log('目标鱼循环结束', 'info');
+    log('鐩爣楸煎惊鐜粨鏉?, 'info');
   }
 
   // ==================== UI ====================
@@ -396,23 +396,23 @@
       '.lf-input-short{width:60px}' +
       '.lf-collapsed .lf-config{display:none}' +
       '</style>' +
-      '<div class="lf-header" id="lf-drag-handle" title="拖拽移动面板">' +
+      '<div class="lf-header" id="lf-drag-handle" title="鎷栨嫿绉诲姩闈㈡澘">' +
         '<span class="lf-title">' + CONFIG.panelTitle + '</span>' +
         '<div class="lf-header-controls"><button class="lf-toggle" id="lf-toggle-btn">-</button></div>' +
       '</div>' +
       '<div class="lf-buttons" id="lf-buttons">' +
-        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">⚡ 一键准备+出航</button>' +
-        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">⚡ 一键返航</button>' +
-        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">🔁 目标鱼循环</button>' +
-        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">⏹ 停止</button>' +
+        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">鈿?涓€閿噯澶?鍑鸿埅</button>' +
+        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">鈿?涓€閿繑鑸?/button>' +
+        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">馃攣 鐩爣楸煎惊鐜?/button>' +
+        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">鈴?鍋滄</button>' +
       '</div>' +
       '<div class="lf-config" id="lf-config">' +
-        '<label class="lf-label">🎯 目标鱼</label>' +
-        '<input class="lf-input" id="lf-target-fish" placeholder="金枪鱼,旗鱼,石斑鱼" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
-        '<label class="lf-label">🔄 最大轮次</label>' +
+        '<label class="lf-label">馃幆 鐩爣楸?/label>' +
+        '<input class="lf-input" id="lf-target-fish" placeholder="閲戞灙楸?鏃楅奔,鐭虫枒楸? maxlength="100" value="' + CONFIG.targetFishStr + '">' +
+        '<label class="lf-label">馃攧 鏈€澶ц疆娆?/label>' +
         '<input class="lf-input lf-input-short" id="lf-max-cycles" type="number" min="1" max="999" value="' + CONFIG.maxCycles + '">' +
       '</div>' +
-      '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
+      '<div class="lf-status" id="lf-status"><span id="lf-status-text">灏辩华</span></div>' +
       '<div class="lf-page-indicator" id="lf-page-info">' + window.location.pathname + '</div>';
 
     document.body.appendChild(panel);
@@ -421,7 +421,7 @@
     cbtn.id = 'lf-collapsed-btn';
     cbtn.className = 'btn btn-secondary';
     cbtn.textContent = '\u{1F6A2}';
-    cbtn.title = '展开操作台';
+    cbtn.title = '灞曞紑鎿嶄綔鍙?;
     document.body.appendChild(cbtn);
 
     applyPosition(panel, cbtn);
@@ -443,12 +443,12 @@
 
     function guard(fn) {
       return async function () {
-        if (busy.v) { log('上一操作仍在执行中', 'warn'); return; }
+        if (busy.v) { log('涓婁竴鎿嶄綔浠嶅湪鎵ц涓?, 'warn'); return; }
         abortFlag = false; busy.v = true;
         setButtonsDisabled(true); stopBtn.style.display = 'block';
         try { await fn(); } catch (e) {
-          if (e.message === 'user-abort') log('操作已停止', 'warn');
-          else log('异常: ' + e.message, 'error');
+          if (e.message === 'user-abort') log('鎿嶄綔宸插仠姝?, 'warn');
+          else log('寮傚父: ' + e.message, 'error');
         } finally { busy.v = false; abortFlag = false; setButtonsDisabled(false); stopBtn.style.display = 'none'; }
       };
     }
@@ -461,7 +461,7 @@
       persistState();
       await fullCycle();
     }));
-    stopBtn.addEventListener('click', function () { log('正在停止...', 'warn'); abortFlag = true; });
+    stopBtn.addEventListener('click', function () { log('姝ｅ湪鍋滄...', 'warn'); abortFlag = true; });
 
     // ===== Drag =====
     var dragging = false, startX, startY, startRight, startTop;
@@ -528,12 +528,12 @@
 
   function init() {
     try {
-      log('自有船操作台已加载', 'success');
+      log('鑷湁鑸规搷浣滃彴宸插姞杞?, 'success');
       createPanel();
 
       var pending = loadResumeAction();
       if (pending && pending.action === 'fullcycle') {
-        log('检测到未完成的目标鱼循环，自动恢复...', 'warn');
+        log('妫€娴嬪埌鏈畬鎴愮殑鐩爣楸煎惊鐜紝鑷姩鎭㈠...', 'warn');
         clearResumeAction();
         setTimeout(function () { fullCycle(); }, 2000);
       }
