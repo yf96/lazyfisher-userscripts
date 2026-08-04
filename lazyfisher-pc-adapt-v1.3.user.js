@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher PC Adapt
+// @name         LazyFisher PC 适配
 // @namespace    https://lazyfisher.toogle.club/
-// @version      1.3
-// @description  Mouse wheel horizontal scroll, drag simulate touch, text wrap
+// @version      1.3.0
+// @description  鼠标滚轮横向滚动 + 拖拽模拟触摸 + 文字自动换行
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @grant        none
