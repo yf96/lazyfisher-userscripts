@@ -115,22 +115,22 @@
 
   function clickPrepare() {
     var btn = findButtonByText(BTN.prepare);
-    if (btn) { safeClick(btn); log('Prepare clicked', 'success'); return true; }
-    log('Prepare btn not found', 'error'); return false;
+    if (btn) { safeClick(btn); log('已点击"开始准备"', 'success'); return true; }
+    log('未找到"开始准备"按钮', 'error'); return false;
   }
   function clickDepart() {
     var btn = findButtonByText(BTN.depart);
-    if (btn) { safeClick(btn); log('Depart clicked', 'success'); return true; }
-    log('Depart btn not found', 'error'); return false;
+    if (btn) { safeClick(btn); log('已点击"出航"', 'success'); return true; }
+    log('未找到"出航"按钮', 'error'); return false;
   }
   function clickReturn() {
     var btn = findButtonByText(BTN.ret);
-    if (btn) { safeClick(btn); log('Return clicked', 'success'); return true; }
-    log('Return btn not found', 'error'); return false;
+    if (btn) { safeClick(btn); log('已点击"返航"', 'success'); return true; }
+    log('未找到"返航"按钮', 'error'); return false;
   }
   function clickCancelPrep() {
     var btn = findButtonByText(BTN.cancel);
-    if (btn) { safeClick(btn); log('Cancel clicked', 'success'); return true; }
+    if (btn) { safeClick(btn); log('已点击"取消准备"', 'success'); return true; }
     return false;
   }
   function clickConfirm() {
@@ -204,7 +204,7 @@
         if ((all[j].textContent || '').indexOf('\u63a2\u67e5\u5230\u7684\u9c7c\u7fa4') !== -1) { container = all[j]; break; }
       }
     }
-    if (!container) { log('Fish area not found', 'warn'); return []; }
+    if (!container) { log('未找到"探查到的鱼群"区域', 'warn'); return []; }
     var origScroll = container.scrollTop;
     for (var s = 0; s < container.scrollHeight; s += 150) container.scrollTop = s;
     container.scrollTop = origScroll;
@@ -227,7 +227,7 @@
       }
     }
     var arr = Array.from(names);
-    log('Scanned ' + arr.length + ' fish: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
+    log('扫描到 ' + arr.length + ' 种鱼: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
     return arr;
   }
 
@@ -242,7 +242,7 @@
       var match = all.find(function (f) { return f.indexOf(t) !== -1 || t.indexOf(f) !== -1; });
       if (match) found.push(t); else missing.push(t);
     }
-    log('Target: ' + targets.join(',') + ' | Found: ' + (found.join(',') || 'none') + ' | Miss: ' + (missing.join(',') || 'none'),
+    log('目标: ' + targets.join(',') + ' | 找到: ' + (found.join(',') || '无') + ' | 缺少: ' + (missing.join(',') || '无'),
       found.length === targets.length ? 'success' : 'warn');
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
@@ -250,7 +250,7 @@
   // ==================== ship operations ====================
 
   async function oneClickPrepareAndDepart() {
-    log('Prepare+Depart start', 'info');
+    log('一键准备+出航 开始', 'info');
     if (!(await ensurePage('/region'))) return;
     checkAbort();
     if (!clickPrepare()) return;
@@ -262,26 +262,26 @@
     if (await abortableSleep(CONFIG.actionDelay)) return;
     clickConfirm();
     if (await abortableSleep(CONFIG.longDelay)) return;
-    log('Prepare+Depart done', 'success');
+    log('一键准备+出航 完成', 'success');
   }
 
   async function cancelPrepareIfNeeded() {
     if (!(await ensurePage('/region'))) return false;
     var btn = findButtonByText(BTN.cancel);
     if (btn) {
-      log('Cancelling prep...', 'warn');
+      log('检测到准备态，先取消准备...', 'warn');
       safeClick(btn);
       if (await abortableSleep(CONFIG.actionDelay)) return false;
       clickConfirm();
       if (await abortableSleep(CONFIG.longDelay)) return false;
-      log('Prep cancelled', 'success');
+      log('已取消准备', 'success');
       return true;
     }
     return false;
   }
 
   async function oneClickReturn() {
-    log('Return start', 'info');
+    log('一键返航 开始', 'info');
     await cancelPrepareIfNeeded();
     checkAbort();
     if (!clickReturn()) { await ensurePage('/region'); clickReturn(); }
@@ -291,17 +291,17 @@
     clickConfirm();
     if (await abortableSleep(CONFIG.actionDelay)) return;
     await cancelPrepareIfNeeded();
-    log('Return done', 'success');
+    log('一键返航 完成', 'success');
   }
 
   async function fullCycle() {
     var targets = getTargetFish();
     var max = CONFIG.maxCycles;
-    if (!targets.length) { log('Please set target fish first', 'error'); return; }
-    log('Fish loop start: ' + targets.join(',') + ' max=' + max, 'info');
+    if (!targets.length) { log('请先在操作台输入目标鱼名称', 'error'); return; }
+    log('目标鱼循环开始 | 目标: ' + targets.join(',') + ' | 最多 ' + max + ' 轮', 'info');
     for (var c = 1; c <= max; c++) {
       checkAbort();
-      log('Round ' + c + '/' + max, 'info');
+      log('第 ' + c + '/' + max + ' 轮', 'info');
       if (!(await ensurePage('/region', 'fullcycle'))) return;
       var tab = findButtonByText(BTN.myShip);
       if (tab) safeClick(tab);
@@ -312,25 +312,25 @@
       await oneClickPrepareAndDepart();
       checkAbort();
       await sleep(CONFIG.longDelay);
-      log('Scanning fish...', 'info');
+      log('扫描探查到的鱼群...', 'info');
       await sleep(1000);
       var result = checkTargetFish();
       if (result.allFound) {
-        log('All target fish found! (' + result.found.join(',') + ') Stopping.', 'success');
+        log('目标鱼全部找到! (' + result.found.join(',') + ') 停止循环', 'success');
         return;
       }
-      log('Missing: ' + result.missing.join(',') + ' - returning for next round', 'warn');
+      log('缺少: ' + result.missing.join(',') + ' - 返航进入下一轮', 'warn');
       await oneClickReturn();
       checkAbort();
       await sleep(CONFIG.longDelay);
       await cancelPrepareIfNeeded();
       await sleep(CONFIG.actionDelay);
     }
-    log('Max cycles reached, target fish not found', 'warn');
+    log('已达最大轮次，目标鱼未找全', 'warn');
     await oneClickReturn();
     await sleep(CONFIG.actionDelay);
     await cancelPrepareIfNeeded();
-    log('Fish loop ended', 'info');
+    log('目标鱼循环结束', 'info');
   }
 
   // ==================== UI ====================
@@ -440,12 +440,12 @@
 
     function guard(fn) {
       return async function () {
-        if (busy.v) { log('Already busy', 'warn'); return; }
+        if (busy.v) { log('上一操作仍在执行中', 'warn'); return; }
         abortFlag = false; busy.v = true;
         setButtonsDisabled(true); stopBtn.style.display = 'block';
         try { await fn(); } catch (e) {
-          if (e.message === 'user-abort') log('Stopped by user', 'warn');
-          else log('Error: ' + e.message, 'error');
+          if (e.message === 'user-abort') log('操作已停止', 'warn');
+          else log('异常: ' + e.message, 'error');
         } finally { busy.v = false; abortFlag = false; setButtonsDisabled(false); stopBtn.style.display = 'none'; }
       };
     }
@@ -458,7 +458,7 @@
       persistState();
       await fullCycle();
     }));
-    stopBtn.addEventListener('click', function () { log('Stopping...', 'warn'); abortFlag = true; });
+    stopBtn.addEventListener('click', function () { log('正在停止...', 'warn'); abortFlag = true; });
 
     // ===== Drag =====
     var dragging = false, startX, startY, startRight, startTop;
@@ -525,12 +525,12 @@
 
   function init() {
     try {
-      log('Ship Ops loaded', 'success');
+      log('自有船操作台已加载', 'success');
       createPanel();
 
       var pending = loadResumeAction();
       if (pending && pending.action === 'fullcycle') {
-        log('Resuming fish loop...', 'warn');
+        log('检测到未完成的目标鱼循环，自动恢复...', 'warn');
         clearResumeAction();
         setTimeout(function () { fullCycle(); }, 2000);
       }
