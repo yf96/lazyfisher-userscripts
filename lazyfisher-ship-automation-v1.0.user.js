@@ -13,6 +13,9 @@
 (function () {
   'use strict';
 
+  console.log('[LazyFisher] 自有船操作台 v1.0.0 已加载');
+  console.log('[LazyFisher] 拖拽标题栏移动 | - 折叠为图标 | 点击图标展开');
+
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
 
