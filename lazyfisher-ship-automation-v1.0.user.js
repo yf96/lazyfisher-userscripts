@@ -2,7 +2,7 @@
 // @name         LazyFisher Ship Ops
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.0.0
-// @description  Ship automation + target fish loop for LazyFisher
+// @description  Auto prepare, depart, return, cancel + target fish scan loop
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
