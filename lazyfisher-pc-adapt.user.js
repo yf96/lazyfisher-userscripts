@@ -11,7 +11,7 @@
 (function() {
     'use strict';
 
-    // ========== 1. 榧犳爣婊氳疆 鈫?妯悜婊氬姩 ==========
+    // ========== 1. 鼠标滚轮 → 横向滚动 ==========
     document.addEventListener('wheel', function(e) {
         let el = e.target;
         while (el && el !== document.body) {
@@ -24,7 +24,7 @@
         }
     }, { passive: false });
 
-    // ========== 2. 榧犳爣鎸変綇鎷栨嫿 鈫?妯℃嫙瑙︽懜婊戝姩 ==========
+    // ========== 2. 鼠标按住拖拽 → 模拟触摸滑动 ==========
     (function() {
         let isDragging = false;
         let startX = 0;
@@ -70,16 +70,16 @@
         });
     })();
 
-    // ========== 3. 鏂囧瓧鑷姩鎹㈣锛堣В鍐?鈥?鎴柇闂锛?==========
+    // ========== 3. 文字自动换行（解决 … 截断问题） ==========
     const wrapStyle = document.createElement('style');
     wrapStyle.textContent = `
         * {
-            /* 闀垮崟璇?闀挎枃鏈己鍒舵崲琛?*/
+            /* 长单词/长文本强制换行 */
             overflow-wrap: break-word !important;
             word-break: break-word !important;
         }
 
-        /* 瑙ｉ櫎鍗曡鎴柇锛氭妸 nowrap 鈫?normal锛宔llipsis 鈫?clip */
+        /* 解除单行截断：把 nowrap → normal，ellipsis → clip */
         p, span, div, li, td, th, a, label,
         [class*="text"], [class*="desc"], [class*="name"], [class*="title"],
         [class*="content"], [class*="info"], [class*="detail"] {
@@ -89,5 +89,5 @@
     `;
     document.head.appendChild(wrapStyle);
 
-    console.log('鉁?LazyFisher PC 閫傞厤 v1.3 宸茬敓鏁?);
+    console.log('✅ LazyFisher PC 适配 v1.3 已生效');
 })();
