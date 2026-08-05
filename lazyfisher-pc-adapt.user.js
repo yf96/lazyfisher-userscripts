@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
-// @version      1.3.1
+// @version      1.3.2
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -27,6 +27,8 @@
 
     // ========== 2. 鼠标按住拖拽 → 模拟触摸滑动 ==========
     (function() {
+        const DRAG_THRESHOLD = 3; // 最小移动像素，低于此值不触发拖拽，避免影响文字选择
+
         let isDragging = false;
         let startX = 0;
         let startY = 0;
@@ -38,13 +40,12 @@
                 const hasOverflow = el.scrollWidth > el.clientWidth + 2
                                  || el.scrollHeight > el.clientHeight + 2;
                 if (hasOverflow) {
-                    isDragging = true;
+                    // 仅记录起始位置，不立即激活拖拽，不调用 preventDefault
+                    // 留给文字选择等默认行为
                     startX = e.clientX;
                     startY = e.clientY;
                     currentEl = el;
-                    el.style.cursor = 'grabbing';
-                    el.style.userSelect = 'none';
-                    e.preventDefault();
+                    isDragging = false;
                     return;
                 }
                 el = el.parentElement;
@@ -52,9 +53,20 @@
         });
 
         document.addEventListener('mousemove', function(e) {
-            if (!isDragging || !currentEl) return;
+            if (!currentEl) return;
             const dx = startX - e.clientX;
             const dy = startY - e.clientY;
+
+            if (!isDragging) {
+                // 移动超过阈值才激活拖拽，否则保留默认行为（文字选择）
+                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                    return;
+                }
+                isDragging = true;
+                currentEl.style.cursor = 'grabbing';
+                currentEl.style.userSelect = 'none';
+            }
+
             currentEl.scrollLeft += dx;
             currentEl.scrollTop += dy;
             startX = e.clientX;
