@@ -2,7 +2,7 @@
 // @name         LazyFisher 上鱼概率计算器
 // @namespace    lazyfisher-prob-calc
 // @version      1.8.1
-// @description  上鱼概率计算器。v1.8.1: 矶竿水层推断修复：根据 float_length_cm 计算实际钓深替代关键词硬映射。
+// @description  上鱼概率计算器。v1.8.1: 矶竿水层修复: float_length_cm=721 加容差归入表层, 钓底竿默认底层(替代深层)。
 // @author       大整条饵鱼
 // @match        https://lazyfisher.toogle.club/*
 // @match        http://lazyfisher.toogle.club/*
@@ -834,14 +834,15 @@
                         const fm = allText.match(/float_length_cm["\s:：]+([\d.]+)/);
                         if (fm) floatLen = parseFloat(fm[1]);
                     }
-                    // 根据浮漂长度判断水层：float_length_cm 代表钓深(cm)
+                    // 根据浮漂长度判断水层：float_length_cm 代表钓深(cm)，加容差避免边界值误判
                     if (floatLen != null) {
-                        if (floatLen <= 720) {
-                            waterLayer = 'surface';  // ≤7.2m 表层
+                        // 使用容差：722→mid (从721改为722，允许721仍然算表层)
+                        if (floatLen <= 721) {
+                            waterLayer = 'surface';  // 表层 (浮漂≤7.21m)
                         } else if (floatLen <= 2160) {
-                            waterLayer = 'mid';       // ≤21.6m 中层
+                            waterLayer = 'mid';       // 中层 (≤21.6m)
                         } else if (floatLen <= 3600) {
-                            waterLayer = 'bottom';    // ≤36m 底层
+                            waterLayer = 'bottom';    // 底层 (≤36m)
                         } else {
                             waterLayer = 'deep';       // >36m 深层
                         }
