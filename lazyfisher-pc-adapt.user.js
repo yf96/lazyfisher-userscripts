@@ -12,7 +12,7 @@
 (function() {
     'use strict';
 
-    // ========== 1. 鼠标滚轮 → 横向滚动 ==========
+    // ========== 1. 榧犳爣婊氳疆 鈫?妯悜婊氬姩 ==========
     document.addEventListener('wheel', function(e) {
         let el = e.target;
         while (el && el !== document.body) {
@@ -25,9 +25,9 @@
         }
     }, { passive: false });
 
-    // ========== 2. 鼠标按住拖拽 → 模拟触摸滑动 ==========
+    // ========== 2. 榧犳爣鎸変綇鎷栨嫿 鈫?妯℃嫙瑙︽懜婊戝姩 ==========
     (function() {
-        const DRAG_THRESHOLD = 3; // 最小移动像素，低于此值不触发拖拽，避免影响文字选择
+        const DRAG_THRESHOLD = 3; // 鏈€灏忕Щ鍔ㄥ儚绱狅紝浣庝簬姝ゅ€间笉瑙﹀彂鎷栨嫿锛岄伩鍏嶅奖鍝嶆枃瀛楅€夋嫨
 
         let isDragging = false;
         let startX = 0;
@@ -40,9 +40,8 @@
                 const hasOverflow = el.scrollWidth > el.clientWidth + 2
                                  || el.scrollHeight > el.clientHeight + 2;
                 if (hasOverflow) {
-                    // 仅记录起始位置，不立即激活拖拽，不调用 preventDefault
-                    // 留给文字选择等默认行为
-                    startX = e.clientX;
+                    // 浠呰褰曡捣濮嬩綅缃紝涓嶇珛鍗虫縺娲绘嫋鎷斤紝涓嶈皟鐢?preventDefault
+                    // 鐣欑粰鏂囧瓧閫夋嫨绛夐粯璁よ涓?                    startX = e.clientX;
                     startY = e.clientY;
                     currentEl = el;
                     isDragging = false;
@@ -58,8 +57,7 @@
             const dy = startY - e.clientY;
 
             if (!isDragging) {
-                // 移动超过阈值才激活拖拽，否则保留默认行为（文字选择）
-                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                // 绉诲姩瓒呰繃闃堝€兼墠婵€娲绘嫋鎷斤紝鍚﹀垯淇濈暀榛樿琛屼负锛堟枃瀛楅€夋嫨锛?                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
                     return;
                 }
                 isDragging = true;
@@ -83,16 +81,16 @@
         });
     })();
 
-    // ========== 3. 文字自动换行（解决 … 截断问题） ==========
+    // ========== 3. 鏂囧瓧鑷姩鎹㈣锛堣В鍐?鈥?鎴柇闂锛?==========
     const wrapStyle = document.createElement('style');
     wrapStyle.textContent = `
         * {
-            /* 长单词/长文本强制换行 */
+            /* 闀垮崟璇?闀挎枃鏈己鍒舵崲琛?*/
             overflow-wrap: break-word !important;
             word-break: break-word !important;
         }
 
-        /* 解除单行截断：把 nowrap → normal，ellipsis → clip */
+        /* 瑙ｉ櫎鍗曡鎴柇锛氭妸 nowrap 鈫?normal锛宔llipsis 鈫?clip */
         p, span, div, li, td, th, a, label,
         [class*="text"], [class*="desc"], [class*="name"], [class*="title"],
         [class*="content"], [class*="info"], [class*="detail"] {
@@ -102,5 +100,5 @@
     `;
     document.head.appendChild(wrapStyle);
 
-    console.log('✅ LazyFisher PC 适配 v1.3 已生效');
+    console.log('鉁?LazyFisher PC 閫傞厤 v1.3 宸茬敓鏁?);
 })();
