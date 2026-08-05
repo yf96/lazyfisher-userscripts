@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher 自有船操作台 V1.1
+// @name         LazyFisher 自有船操作台 V1.2
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.1.0
-// @description  自有船一键准备+出航/返航/目标鱼循环/自动上船/船员等待
+// @version      1.2.0
+// @description  自有船一键准备+出航/返航/目标鱼循环/自动上船(多海域切换搜索)/船员等待
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] 自有船操作台 v1.1.0 已加载');
+  console.log('[LazyFisher] 自有船操作台 v1.2.0 已加载');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
@@ -276,45 +276,79 @@
   }
 
   async function autoBoard() {
-    if (!CONFIG.shipOwnerId) { log('Please enter ship owner ID first', 'error'); return; }
-    log('Auto board start | owner: ' + CONFIG.shipOwnerId, 'info');
+    if (!CONFIG.shipOwnerId) { log('请先在操作台输入船主ID', 'error'); return; }
+    log('自动上船 开始 | 船主: ' + CONFIG.shipOwnerId, 'info');
     if (!(await ensurePage('/region'))) return;
     await sleep(CONFIG.actionDelay);
     var boatTab = findButtonByText(['船钓']);
     if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
-    else { log('Boat tab not found', 'error'); return; }
-    log('Searching for ship owner "' + CONFIG.shipOwnerId + '"...', 'info');
+    else { log('未找到"船钓"标签', 'error'); return; }
+
+    // 读取用户选中的海域复选框
+    var selectedRegions = [];
+    var checkboxes = document.querySelectorAll('#lf-region-list input[type="checkbox"]:checked');
+    for (var ci = 0; ci < checkboxes.length; ci++) {
+      selectedRegions.push(checkboxes[ci].value);
+    }
+    log('将在以下海域查找: ' + (selectedRegions.length > 0 ? selectedRegions.join(', ') : '(当前页)'), 'info');
+    log('将在以下海域查找: ' + (selectedRegions.length > 0 ? selectedRegions.join(', ') : '(当前页)'), 'info');
+
+    var ALL_REGIONS = [
+      '风裂岬·外台', '黑礁断面', '海杉礁·海带浅礁', '银鳞岛·外海船钓之旅',
+      '玄潮台·海山边缘', '暴线礁·远浪台', '赤湾深槽船钓之旅', '渊门峡·岸投端',
+      '蓝潮断岸', '王流海岬', '夜坠海沟缘', '巨影海峡船钓之旅',
+      '纪元裂岬', '纪元洋脊船钓之旅'
+    ];
+    var regionsToSearch = selectedRegions.length > 0 ? selectedRegions : ALL_REGIONS;
+
     var found = false;
-    for (var attempt = 0; attempt < 60; attempt++) {
-      checkAbort();
-      var allCards = document.querySelectorAll('[class*="boat"],[class*="ship"],[class*="card"],[class*="item"],[class*="row"],li,tr');
-      for (var i = 0; i < allCards.length; i++) {
-        var el = allCards[i];
-        if (!el.offsetParent) continue;
-        var txt = el.textContent || '';
-        if (txt.indexOf(CONFIG.shipOwnerId) !== -1 && txt.indexOf('上船') !== -1) {
-          var boardBtn = el.querySelector('button');
-          if (!boardBtn) boardBtn = findButtonByText(['上船', '加入', '登船'], el);
-          if (boardBtn) { safeClick(boardBtn); log('Board button clicked', 'success'); found = true; break; }
+    for (var ri = 0; ri < regionsToSearch.length && !found; ri++) {
+      var regionName = regionsToSearch[ri];
+      log('切换到海域: ' + regionName, 'info');
+
+      // 尝试点击海域列表中的该海域
+      var regionEls = document.querySelectorAll('[class*="region"], [class*="area"], li, a, button, span, div');
+      var clicked = false;
+      for (var rj = 0; rj < regionEls.length; rj++) {
+        var rel = regionEls[rj];
+        if (!rel.offsetParent) continue;
+        var rt = (rel.textContent || '').trim();
+        if (rt === regionName || rt.indexOf(regionName) !== -1) {
+          safeClick(rel); clicked = true; break;
         }
       }
-      if (found) break;
-      await sleep(3000);
-      log('  Searching... (' + (attempt + 1) + '/60)', 'info');
+      if (clicked) { await sleep(CONFIG.longDelay); }
+
+      // 在当前海域页查找目标船
+      for (var attempt = 0; attempt < 8 && !found; attempt++) {
+        checkAbort();
+        var allCards = document.querySelectorAll('[class*="boat"],[class*="ship"],[class*="card"],[class*="item"],[class*="row"],li,tr');
+        for (var i = 0; i < allCards.length; i++) {
+          var el = allCards[i];
+          if (!el.offsetParent) continue;
+          var txt = el.textContent || '';
+          if (txt.indexOf(CONFIG.shipOwnerId) !== -1 && txt.indexOf('上船') !== -1) {
+            var boardBtn = el.querySelector('button');
+            if (!boardBtn) boardBtn = findButtonByText(['上船', '加入', '登船'], el);
+            if (boardBtn) { safeClick(boardBtn); log('已找到目标船并点击上船', 'success'); found = true; break; }
+          }
+        }
+        if (!found) { await sleep(3000); log('  ' + regionName + ' 查找中... (' + (attempt + 1) + '/8)', 'info'); }
+      }
     }
-    if (!found) { log('Ship not found within 3 minutes', 'error'); return; }
+    if (!found) { log('在所有海域中未找到目标船', 'error'); return; }
     await sleep(CONFIG.longDelay);
     if (CONFIG.minCrew > 1) {
-      log('Waiting for ' + CONFIG.minCrew + ' crew...', 'warn');
+      log('等待登船人数达到 ' + CONFIG.minCrew + '...', 'warn');
       for (var w = 0; w < 120; w++) {
         checkAbort();
         var crew = countCrewOnPage();
-        if (crew && crew.current >= CONFIG.minCrew) { log('Crew reached: ' + crew.current + '/' + crew.max, 'success'); break; }
-        if (crew) log('  Crew: ' + crew.current + '/' + crew.max + ' (need ' + CONFIG.minCrew + ')', 'info');
+        if (crew && crew.current >= CONFIG.minCrew) { log('登船人数已达 ' + crew.current + '/' + crew.max, 'success'); break; }
+        if (crew) log('  当前登船人数: ' + crew.current + '/' + crew.max + ' (需要 ' + CONFIG.minCrew + ')', 'info');
         await sleep(3000);
       }
     }
-    log('Auto board done', 'success');
+    log('自动上船 完成', 'success');
   }
 
   async function fullCycle() {
@@ -446,6 +480,23 @@
         '<input class="lf-input" id="lf-owner-id" placeholder="船主名字或ID" maxlength="50" value="' + (CONFIG.shipOwnerId || '') + '">' +
         '<label class="lf-label">👥 最低登船人数</label>' +
         '<input class="lf-input lf-input-short" id="lf-min-crew" type="number" min="1" max="99" value="' + CONFIG.minCrew + '">' +
+        '<label class="lf-label">🌊 搜索海域</label>' +
+        '<div id="lf-region-list" style="max-height:100px;overflow-y:auto;margin-top:2px;font-size:10px;color:#94a3b8">' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="风裂岬·外台">风裂岬·外台</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="黑礁断面">黑礁断面</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="海杉礁·海带浅礁">海杉礁·海带浅礁</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="银鳞岛·外海船钓之旅">银鳞岛·外海船钓之旅</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="玄潮台·海山边缘">玄潮台·海山边缘</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="暴线礁·远浪台">暴线礁·远浪台</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="赤湾深槽船钓之旅">赤湾深槽船钓之旅</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="渊门峡·岸投端">渊门峡·岸投端</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="蓝潮断岸">蓝潮断岸</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="王流海岬">王流海岬</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="夜坠海沟缘">夜坠海沟缘</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="巨影海峡船钓之旅">巨影海峡船钓之旅</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="纪元裂岬">纪元裂岬</label>' +
+          '<label style="display:flex;align-items:center;gap:3px;margin:1px 0"><input type="checkbox" class="lf-region-cb" value="纪元洋脊船钓之旅">纪元洋脊船钓之旅</label>' +
+        '</div>' +
       '</div>' +
       '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
       '<div class="lf-page-indicator" id="lf-page-info">' + window.location.pathname + '</div>';
