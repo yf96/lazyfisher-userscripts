@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.2.5
+// @version      1.3.0
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -221,10 +221,34 @@
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
 
+  async function selectSeaRegion() {
+    var selectEl = document.getElementById('lf-region-select');
+    var regionName = selectEl ? selectEl.options[selectEl.selectedIndex].text : '';
+    if (!regionName || regionName === '全部海域') return; // 未选海域，不切换
+
+    log('切换海域: ' + regionName, 'info');
+    // 在我的船页面找到海域选择器并点击目标海域
+    var all = document.querySelectorAll('a, button, [role="tab"], [role="option"], li, span, div');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (!el.offsetParent) continue;
+      var t = (el.textContent || '').trim();
+      if (t === regionName) { safeClick(el); log('已选择海域: ' + regionName, 'success'); return true; }
+    }
+    log('未找到海域入口: ' + regionName, 'warn');
+    return false;
+  }
+
   async function oneClickPrepareAndDepart() {
     log('Prepare+Depart start', 'info');
     if (!(await ensurePage('/region'))) return;
     checkAbort();
+    // 切换到我的船
+    var tab = findButtonByText(BTN.myShip);
+    if (tab) { safeClick(tab); await sleep(CONFIG.actionDelay); }
+    // 选择海域
+    await selectSeaRegion();
+    await sleep(CONFIG.actionDelay);
     if (!clickPrepare()) return;
     if (await abortableSleep(CONFIG.actionDelay)) return;
     clickConfirm();
