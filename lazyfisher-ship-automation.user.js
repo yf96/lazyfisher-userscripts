@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台 V1.2.2
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.2.2
-// @description  自有船：一键准备+出航/返航/目标鱼循环/自动上船(下拉选框切换游戏海域)/船员等待
+// @version      1.2.3
+// @description  自有船: 一键准备+出航/返航/目标鱼循环/自动上船(下拉选框切换游戏海域)/船员等待
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
@@ -327,17 +327,6 @@
       log('  查找中... (' + (attempt + 1) + '/60)', 'info');
     }
     if (!found) { log('未在3分钟内找到目标船', 'error'); return; }
-    await sleep(CONFIG.longDelay);
-    if (CONFIG.minCrew > 1) {
-      log('等待登船人数达到 ' + CONFIG.minCrew + '...', 'warn');
-      for (var w = 0; w < 120; w++) {
-        checkAbort();
-        var crew = countCrewOnPage();
-        if (crew && crew.current >= CONFIG.minCrew) { log('登船人数已达 ' + crew.current + '/' + crew.max, 'success'); break; }
-        if (crew) log('  当前登船人数: ' + crew.current + '/' + crew.max + ' (需要 ' + CONFIG.minCrew + ')', 'info');
-        await sleep(3000);
-      }
-    }
     log('自动上船 完成', 'success');
   }
 
