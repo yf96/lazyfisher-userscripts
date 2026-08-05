@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.3.4
+// @version      1.4.0
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] 自有船操作台 v1.2.2 已加载');
+  console.log('[LazyFisher] Ship Ops v1.4.0');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
@@ -221,25 +221,25 @@
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
 
-  var seaRegionSet = false;
+  // ==================== sea region select ====================
+
+  var seaRegionSet = false; // reset each fullCycle run via resetSeaRegion()
+
+  function resetSeaRegion() { seaRegionSet = false; }
 
   async function selectSeaRegion() {
-    if (seaRegionSet) return true;
+    if (seaRegionSet) { log('sea region already set this cycle, skip', 'info'); return true; }
     var lfSelect = document.getElementById('lf-region-select');
     if (!lfSelect) { log('lf-region-select not found', 'warn'); return false; }
     var regionName = lfSelect.options[lfSelect.selectedIndex].text;
-    if (!regionName || regionName === '全部海域') { log('no region selected, skip', 'info'); return false; }
-    seaRegionSet = true;
+    if (!regionName || regionName === '全部海域') { log('no specific region selected', 'info'); return false; }
 
     log('selectSeaRegion: ' + regionName, 'info');
 
-    // 根据用户提供的DOM结构: <div class="form-group mt-md"><label>海面</label><select>...
-    // 优先用 .form-group.mt-md select
+    // Find game <select> inside <div class="form-group mt-md"><label>海面</label><select>...
     var targetSelect = document.querySelector('.form-group.mt-md select');
-    if (targetSelect) {
-      log('found .form-group.mt-md select', 'info');
-    } else {
-      // 兜底: 找 label=海面 的父元素下的 select
+    if (!targetSelect) {
+      // fallback
       var labels = document.querySelectorAll('label');
       for (var i = 0; i < labels.length; i++) {
         if ((labels[i].textContent || '').trim() === '海面') {
@@ -248,33 +248,34 @@
         }
       }
     }
-    if (!targetSelect) { log('targetSelect not found', 'warn'); return false; }
+    if (!targetSelect) { log('target sea select not found, skip', 'warn'); return false; }
 
-    // React组件可能需要用 React 内部方式触发，但 dispatchEvent change 通常够用
     for (var j = 0; j < targetSelect.options.length; j++) {
       if (targetSelect.options[j].text === regionName) {
-        // 先聚焦再设置值，确保 React 受控组件能识别
         targetSelect.focus();
         targetSelect.value = targetSelect.options[j].value;
         targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
         targetSelect.dispatchEvent(new Event('input', { bubbles: true }));
-        log('sea region set to: ' + regionName, 'success');
-        await sleep(CONFIG.longDelay); // 等 SPA 反应
+        targetSelect.blur();
+        seaRegionSet = true;
+        log('sea region set OK: ' + regionName, 'success');
+        await sleep(CONFIG.longDelay);
         return true;
       }
     }
-    log('region option not found: ' + regionName, 'warn');
+    log('region option mismatch: "' + regionName + '" not found in game select', 'warn');
     return false;
   }
+
+  // ==================== ship operations ====================
 
   async function oneClickPrepareAndDepart() {
     log('Prepare+Depart start', 'info');
     if (!(await ensurePage('/region'))) return;
     checkAbort();
-    // 切换到我的船
     var tab = findButtonByText(BTN.myShip);
     if (tab) { safeClick(tab); await sleep(CONFIG.longDelay); }
-    // 选择海域（仅首次）
+    // switch sea region
     await selectSeaRegion();
     await sleep(CONFIG.actionDelay);
     if (!clickPrepare()) return;
@@ -328,39 +329,32 @@
   }
 
   async function autoBoard() {
-    if (!CONFIG.shipOwnerId) { log('请先在操作台输入船主ID', 'error'); return; }
-    log('自动上船 开始 | 船主: ' + CONFIG.shipOwnerId, 'info');
+    if (!CONFIG.shipOwnerId) { log('请先输入船主ID', 'error'); return; }
+    log('自动上船 | 船主: ' + CONFIG.shipOwnerId, 'info');
     if (!(await ensurePage('/region'))) return;
     await sleep(CONFIG.actionDelay);
     var boatTab = findButtonByText(['船钓']);
     if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
-    else { log('未找到"船钓"标签', 'error'); return; }
+    else { log('未找到船钓标签', 'error'); return; }
 
-    // 读取下拉选框选中的海域
     var selectEl = document.getElementById('lf-region-select');
     var selectedValue = selectEl ? selectEl.value : '';
-    log('搜索海域: ' + (selectedValue || '全部海域'), 'info');
+    log('search sea: ' + (selectedValue || 'all'), 'info');
 
-    // 通过改变游戏自带 <select> 来切换海域
     var gameSelect = document.querySelector('.boat-list-filter-select');
     if (gameSelect) {
       if (selectedValue) {
         gameSelect.value = selectedValue;
         gameSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        log('已切换到海域: ' + selectedValue, 'success');
         await sleep(CONFIG.longDelay);
-      }
-      // 全部海域：先设 __all__ 触发一次
-      else {
+      } else {
         gameSelect.value = '__all__';
         gameSelect.dispatchEvent(new Event('change', { bubbles: true }));
         await sleep(CONFIG.longDelay);
       }
     }
 
-    // 搜索目标船
     var found = false;
-    log('正在查找船主为 "' + CONFIG.shipOwnerId + '" 的船...', 'info');
     for (var attempt = 0; attempt < 60; attempt++) {
       checkAbort();
       var allCards = document.querySelectorAll('[class*="boat"],[class*="ship"],[class*="card"],[class*="item"],[class*="row"],li,tr');
@@ -371,21 +365,22 @@
         if (txt.indexOf(CONFIG.shipOwnerId) !== -1 && txt.indexOf('上船') !== -1) {
           var boardBtn = el.querySelector('button');
           if (!boardBtn) boardBtn = findButtonByText(['上船', '加入', '登船'], el);
-          if (boardBtn) { safeClick(boardBtn); log('已找到目标船并点击上船', 'success'); found = true; break; }
+          if (boardBtn) { safeClick(boardBtn); log('已上船', 'success'); found = true; break; }
         }
       }
       if (found) break;
       await sleep(3000);
       log('  查找中... (' + (attempt + 1) + '/60)', 'info');
     }
-    if (!found) { log('未在3分钟内找到目标船', 'error'); return; }
+    if (!found) { log('未找到目标船', 'error'); return; }
     log('自动上船 完成', 'success');
   }
 
   async function fullCycle() {
     var targets = getTargetFish();
     var max = CONFIG.maxCycles;
-    if (!targets.length) { log('Please set target fish first', 'error'); return; }
+    if (!targets.length) { log('请设置目标鱼', 'error'); return; }
+    resetSeaRegion(); // allow region switch on first round
     log('Fish loop start: ' + targets.join(',') + ' max=' + max, 'info');
     for (var c = 1; c <= max; c++) {
       checkAbort();
@@ -394,37 +389,31 @@
       var tab = findButtonByText(BTN.myShip);
       if (tab) safeClick(tab);
       await sleep(CONFIG.longDelay);
-      // 首次循环选择海域
+      // select sea region on first round only
       await selectSeaRegion();
       await sleep(CONFIG.actionDelay);
       await cancelPrepareIfNeeded();
       checkAbort();
       await sleep(CONFIG.actionDelay);
-      await cancelPrepareIfNeeded();
-      checkAbort();
-      await sleep(CONFIG.actionDelay);
 
-      // 先点"开始准备"，进入准备态
-      if (!clickPrepare()) { log('未找到准备按钮，跳过本轮', 'error'); continue; }
+      if (!clickPrepare()) { log('准备按钮未找到', 'error'); continue; }
       if (await abortableSleep(CONFIG.actionDelay)) return;
       clickConfirm();
       await sleep(CONFIG.longDelay);
 
-      // 准备态下等待登船人数达标
       if (CONFIG.minCrew > 1) {
-        log('等待登船人数达到 ' + CONFIG.minCrew + '...', 'warn');
+        log('等船员 ' + CONFIG.minCrew + '...', 'warn');
         for (var w = 0; w < 200; w++) {
           checkAbort();
           var crew = countCrewOnPage();
-          if (crew && crew.current >= CONFIG.minCrew) { log('登船人数已达 ' + crew.current + '/' + crew.max, 'success'); break; }
-          if (crew) log('  当前登船人数: ' + crew.current + '/' + crew.max + ' (需要 ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
-          else log('  未检测到人数信息... (' + (w + 1) + '/200)', 'info');
+          if (crew && crew.current >= CONFIG.minCrew) { log('船员达标: ' + crew.current + '/' + crew.max, 'success'); break; }
+          if (crew) log('  船员: ' + crew.current + '/' + crew.max + ' (需 ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
+          else log('  无船员信息... (' + (w + 1) + '/200)', 'info');
           await sleep(3000);
         }
       }
 
-      // 人数够了 → 出航
-      if (!clickDepart()) { log('未找到出航按钮', 'error'); continue; }
+      if (!clickDepart()) { log('出航按钮未找到', 'error'); continue; }
       if (await abortableSleep(CONFIG.actionDelay)) return;
       clickConfirm();
       if (await abortableSleep(CONFIG.longDelay)) return;
@@ -432,17 +421,17 @@
       await sleep(1000);
       var result = checkTargetFish();
       if (result.allFound) {
-        log('All target fish found! (' + result.found.join(',') + ') Stopping.', 'success');
+        log('All target fish found! (' + result.found.join(',') + ')', 'success');
         return;
       }
-      log('Missing: ' + result.missing.join(',') + ' - returning for next round', 'warn');
+      log('Missing: ' + result.missing.join(',') + ' - return', 'warn');
       await oneClickReturn();
       checkAbort();
       await sleep(CONFIG.longDelay);
       await cancelPrepareIfNeeded();
       await sleep(CONFIG.actionDelay);
     }
-    log('Max cycles reached, target fish not found', 'warn');
+    log('Max cycles reached', 'warn');
     await oneClickReturn();
     await sleep(CONFIG.actionDelay);
     await cancelPrepareIfNeeded();
@@ -508,7 +497,7 @@
       '.lf-input-short{width:60px}' +
       '.lf-collapsed .lf-config{display:none}' +
       '</style>' +
-      '<div class="lf-header" id="lf-drag-handle" title="拖拽移动面板">' +
+      '<div class="lf-header" id="lf-drag-handle" title="拖拽移动">' +
         '<span class="lf-title">' + CONFIG.panelTitle + '</span>' +
         '<div class="lf-header-controls"><button class="lf-toggle" id="lf-toggle-btn">-</button></div>' +
       '</div>' +
@@ -525,30 +514,26 @@
         '<label class="lf-label">🔄 最大轮次</label>' +
         '<input class="lf-input lf-input-short" id="lf-max-cycles" type="number" min="1" max="999" value="' + CONFIG.maxCycles + '">' +
         '<label class="lf-label">👤 船主ID</label>' +
-        '<input class="lf-input" id="lf-owner-id" placeholder="船主名字或ID" maxlength="50" value="' + (CONFIG.shipOwnerId || '') + '">' +
+        '<input class="lf-input" id="lf-owner-id" placeholder="船主名字" maxlength="50" value="' + (CONFIG.shipOwnerId || '') + '">' +
         '<label class="lf-label">👥 最低登船人数</label>' +
         '<input class="lf-input lf-input-short" id="lf-min-crew" type="number" min="1" max="99" value="' + CONFIG.minCrew + '">' +
         '<label class="lf-label">🌊 搜索海域</label>' +
         '<select class="lf-input" id="lf-region-select" style="color:#e2e8f0">' +
           '<option value="">全部海域</option>' +
-          '<option value="boat_bailu_lake">白鹭湖·晨雾船钓之旅</option>' +
-          '<option value="boat_shimen_reservoir">石门水库·深湾船钓之旅</option>' +
-          '<option value="boat_baijiao_nearshore">白礁港·近海船钓之旅</option>' +
-          '<option value="boat_lanchao_shelf">蓝潮岬·外缘船钓之旅</option>' +
-          '<option value="boat_yinlin_offshore">银鳞岛·外海船钓之旅</option>' +
-          '<option value="boat_crimson_trench">赤湾深槽船钓之旅</option>' +
-          '<option value="boat_leviathan_corridor">巨影海峡船钓之旅</option>' +
-          '<option value="boat_epochal_ridge">纪元洋脊船钓之旅</option>' +
-          '<option value="crown_current_cape">王流海岬</option>' +
-          '<option value="fissure_cape_outer">风裂岬·外台</option>' +
-          '<option value="blackreef_break">黑礁断面</option>' +
+          '<option value="stormbreak_headland">风裂岬·外台</option>' +
+          '<option value="blackreef_dropoff">黑礁断面</option>' +
           '<option value="kelp_shoal">海杉礁·海带浅礁</option>' +
-          '<option value="darktide_platform">玄潮台·海山边缘</option>' +
+          '<option value="boat_yinlin_offshore">银鳞岛·外海船钓之旅</option>' +
+          '<option value="seamount_edge">玄潮台·海山边缘</option>' +
           '<option value="stormline_reef">暴线礁·远浪台</option>' +
-          '<option value="abyss_gate_shore">渊门峡·岸投端</option>' +
-          '<option value="blue_current_cliff">蓝潮断岸</option>' +
-          '<option value="night_trench_edge">夜坠海沟缘</option>' +
-          '<option value="epoch_rift_cape">纪元裂岬</option>' +
+          '<option value="boat_crimson_trench">赤湾深槽船钓之旅</option>' +
+          '<option value="hadal_canyon_gate">渊门峡·岸投端</option>' +
+          '<option value="bluecurrent_fault_bank">蓝潮断岸</option>' +
+          '<option value="crown_current_cape">王流海岬</option>' +
+          '<option value="nightfall_trench_rim">夜坠海沟缘</option>' +
+          '<option value="boat_leviathan_corridor">巨影海峡船钓之旅</option>' +
+          '<option value="epoch_rift_headland">纪元裂岬</option>' +
+          '<option value="boat_epochal_ridge">纪元洋脊船钓之旅</option>' +
         '</select>' +
       '</div>' +
       '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
@@ -560,7 +545,7 @@
     cbtn.id = 'lf-collapsed-btn';
     cbtn.className = 'btn btn-secondary';
     cbtn.textContent = '\u{1F6A2}';
-    cbtn.title = '展开操作台';
+    cbtn.title = '展开';
     document.body.appendChild(cbtn);
 
     applyPosition(panel, cbtn);
@@ -582,12 +567,12 @@
 
     function guard(fn) {
       return async function () {
-        if (busy.v) { log('Already busy', 'warn'); return; }
+        if (busy.v) { log('忙', 'warn'); return; }
         abortFlag = false; busy.v = true;
         setButtonsDisabled(true); stopBtn.style.display = 'block';
         try { await fn(); } catch (e) {
-          if (e.message === 'user-abort') log('Stopped by user', 'warn');
-          else log('Error: ' + e.message, 'error');
+          if (e.message === 'user-abort') log('已停止', 'warn');
+          else log('错误: ' + e.message, 'error');
         } finally { busy.v = false; abortFlag = false; setButtonsDisabled(false); stopBtn.style.display = 'none'; }
       };
     }
@@ -608,7 +593,7 @@
       persistState();
       await autoBoard();
     }));
-    stopBtn.addEventListener('click', function () { log('Stopping...', 'warn'); abortFlag = true; });
+    stopBtn.addEventListener('click', function () { log('停止中...', 'warn'); abortFlag = true; });
 
     var dragging = false, startX, startY, startRight, startTop;
     function onDragStart(e) {
@@ -664,7 +649,7 @@
 
   function init() {
     try {
-      log('Ship Ops loaded', 'success');
+      log('Ship Ops v1.4.0 loaded', 'success');
       createPanel();
       var pending = loadResumeAction();
       if (pending && pending.action === 'fullcycle') { log('Resuming fish loop...', 'warn'); clearResumeAction(); setTimeout(function () { fullCycle(); }, 2000); }
