@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.3.3
+// @version      1.3.4
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -223,8 +223,10 @@
 
   var seaRegionSet = false; // 只在第一次循环时选择海域
 
+  var seaRegionSet = false;
+
   async function selectSeaRegion() {
-    if (seaRegionSet) return;
+    if (seaRegionSet) return true;
     var lfSelect = document.getElementById('lf-region-select');
     if (!lfSelect) { log('lf-region-select not found', 'warn'); return false; }
     var regionName = lfSelect.options[lfSelect.selectedIndex].text;
@@ -232,28 +234,34 @@
     seaRegionSet = true;
 
     log('selectSeaRegion: ' + regionName, 'info');
-    // find <label>海面</label> parent's <select>
-    var targetSelect = null;
-    var labels = document.querySelectorAll('label');
-    for (var i = 0; i < labels.length; i++) {
-      if ((labels[i].textContent || '').trim() === '海面') {
-        targetSelect = labels[i].parentElement.querySelector('select');
-        break;
+
+    // 根据用户提供的DOM结构: <div class="form-group mt-md"><label>海面</label><select>...
+    // 优先用 .form-group.mt-md select
+    var targetSelect = document.querySelector('.form-group.mt-md select');
+    if (targetSelect) {
+      log('found .form-group.mt-md select', 'info');
+    } else {
+      // 兜底: 找 label=海面 的父元素下的 select
+      var labels = document.querySelectorAll('label');
+      for (var i = 0; i < labels.length; i++) {
+        if ((labels[i].textContent || '').trim() === '海面') {
+          targetSelect = labels[i].parentElement.querySelector('select');
+          break;
+        }
       }
-    }
-    // fallback: .form-group.mt-md select
-    if (!targetSelect) {
-      var fg = document.querySelector('.form-group.mt-md select');
-      if (fg) targetSelect = fg;
     }
     if (!targetSelect) { log('targetSelect not found', 'warn'); return false; }
 
+    // React组件可能需要用 React 内部方式触发，但 dispatchEvent change 通常够用
     for (var j = 0; j < targetSelect.options.length; j++) {
       if (targetSelect.options[j].text === regionName) {
+        // 先聚焦再设置值，确保 React 受控组件能识别
+        targetSelect.focus();
         targetSelect.value = targetSelect.options[j].value;
         targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        targetSelect.dispatchEvent(new Event('input', { bubbles: true }));
         log('sea region set to: ' + regionName, 'success');
-        await sleep(CONFIG.actionDelay);
+        await sleep(CONFIG.longDelay); // 等 SPA 反应
         return true;
       }
     }
@@ -267,8 +275,8 @@
     checkAbort();
     // 切换到我的船
     var tab = findButtonByText(BTN.myShip);
-    if (tab) { safeClick(tab); await sleep(CONFIG.actionDelay); }
-    // 选择海域
+    if (tab) { safeClick(tab); await sleep(CONFIG.longDelay); }
+    // 选择海域（仅首次）
     await selectSeaRegion();
     await sleep(CONFIG.actionDelay);
     if (!clickPrepare()) return;
