@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         LazyFisher 自有船操作台 V1.2
+// @name         LazyFisher 自有船操作台 V1.2.2
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.2.2
 // @description  自有船：一键准备+出航/返航/目标鱼循环/自动上船(下拉选框切换游戏海域)/船员等待
