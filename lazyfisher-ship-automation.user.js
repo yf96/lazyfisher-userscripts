@@ -2,7 +2,7 @@
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.2.5
-// @description  一键准备出航/返航/目标鱼循环/自动上船/等船员
+// @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
