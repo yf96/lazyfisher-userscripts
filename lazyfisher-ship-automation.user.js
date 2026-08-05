@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher Ship Ops
+// @name         LazyFisher Ship Ops V1.1
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.0.1
-// @description  One-click ship automation + target fish scan loop for LazyFisher
+// @version      1.1.0
+// @description  Own ship: prepare/depart/return/cancel + fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
@@ -13,8 +13,7 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] 自有船操作台 v1.0.0 已加载');
-  console.log('[LazyFisher] 拖拽标题栏移动 | - 折叠为图标 | 点击图标展开');
+  console.log('[LazyFisher] Own ship ops v1.1.0 loaded');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
@@ -37,7 +36,9 @@
     panelRight: saved.right != null ? saved.right : 16,
     collapsed: saved.collapsed != null ? saved.collapsed : true,
     targetFishStr: saved.targetFishStr || '',
-    maxCycles: saved.maxCycles != null ? saved.maxCycles : 10
+    maxCycles: saved.maxCycles != null ? saved.maxCycles : 10,
+    shipOwnerId: saved.shipOwnerId || '',
+    minCrew: saved.minCrew != null ? saved.minCrew : 1
   };
 
   function getTargetFish() {
@@ -101,41 +102,24 @@
   function log(msg, type) {
     type = type || 'info';
     var colors = { info: '#1d9a8c', success: '#22c55e', error: '#ef4444', warn: '#f59e0b' };
-    console.log('%c[LF] ' + msg, 'font-weight:bold;color:' + (colors[type] || '#fff'));
+    console.log('%c[LF] %c' + msg, 'font-weight:bold', 'color:' + (colors[type] || '#fff'));
     var st = document.getElementById('lf-status-text');
     if (st) { st.textContent = msg; st.style.color = colors[type]; }
   }
 
-  // Chinese button text patterns
   var BTN = {
-    prepare: ['\u5f00\u59cb\u51c6\u5907', '\u51c6\u5907\u51fa\u6d77'],
-    depart: ['\u51fa\u822a', '\u76f4\u63a5\u51fa\u822a'],
-    ret: ['\u8fd4\u822a', '\u4e3b\u52a8\u8fd4\u822a'],
-    cancel: ['\u53d6\u6d88\u51c6\u5907'],
-    confirm: ['\u786e\u8ba4', '\u786e\u5b9a', '\u662f', '\u597d\u7684', 'OK'],
-    myShip: ['\u6211\u7684\u8239']
+    prepare: ['开始准备', '准备出海'],
+    depart: ['出航', '直接出航'],
+    ret: ['返航', '主动返航'],
+    cancel: ['取消准备'],
+    confirm: ['确认', '确定', '是', '好的', 'OK'],
+    myShip: ['我的船']
   };
 
-  function clickPrepare() {
-    var btn = findButtonByText(BTN.prepare);
-    if (btn) { safeClick(btn); log('已点击"开始准备"', 'success'); return true; }
-    log('未找到"开始准备"按钮', 'error'); return false;
-  }
-  function clickDepart() {
-    var btn = findButtonByText(BTN.depart);
-    if (btn) { safeClick(btn); log('已点击"出航"', 'success'); return true; }
-    log('未找到"出航"按钮', 'error'); return false;
-  }
-  function clickReturn() {
-    var btn = findButtonByText(BTN.ret);
-    if (btn) { safeClick(btn); log('已点击"返航"', 'success'); return true; }
-    log('未找到"返航"按钮', 'error'); return false;
-  }
-  function clickCancelPrep() {
-    var btn = findButtonByText(BTN.cancel);
-    if (btn) { safeClick(btn); log('已点击"取消准备"', 'success'); return true; }
-    return false;
-  }
+  function clickPrepare() { var btn = findButtonByText(BTN.prepare); if (btn) { safeClick(btn); return true; } log('Prepare not found', 'error'); return false; }
+  function clickDepart() { var btn = findButtonByText(BTN.depart); if (btn) { safeClick(btn); return true; } log('Depart not found', 'error'); return false; }
+  function clickReturn() { var btn = findButtonByText(BTN.ret); if (btn) { safeClick(btn); return true; } log('Return not found', 'error'); return false; }
+  function clickCancelPrep() { var btn = findButtonByText(BTN.cancel); if (btn) { safeClick(btn); return true; } return false; }
   function clickConfirm() {
     var modals = document.querySelectorAll('[role="dialog"], .modal, .ant-modal, [class*="modal"], [class*="Modal"], [class*="dialog"], [class*="Dialog"], [class*="confirm"], [class*="Confirm"]');
     var root = modals.length > 0 ? modals[modals.length - 1] : document;
@@ -144,21 +128,13 @@
     return false;
   }
 
-  // ==================== navigation ====================
-
   function tryNavigate(path) {
     if (window.location.pathname === path || window.location.pathname.indexOf(path) === 0) return true;
-    var map = {
-      '/region': ['\u9493\u573a', '\u533a\u57df', '\u6d77\u9762', '\u6211\u7684\u8239', '\u8239\u9493'],
-      '/equipment': ['\u88c5\u5907', '\u6574\u5907'],
-      '/fishing': ['\u9493\u9c7c', '\u8239\u9493'],
-      '/keep': ['\u517b\u9c7c', '\u9c7c\u4ed3']
-    };
+    var map = { '/region': ['钓场', '区域', '海面', '我的船', '船钓'], '/equipment': ['装备', '整备'], '/fishing': ['钓鱼', '船钓'], '/keep': ['养鱼', '鱼仓'] };
     var kw = map[path] || [path.replace('/', '')];
     var els = document.querySelectorAll('a, button, [role="tab"], [role="link"], span, div');
     for (var i = 0; i < els.length; i++) {
-      var el = els[i];
-      if (el.offsetParent === null && el.tagName !== 'A') continue;
+      var el = els[i]; if (el.offsetParent === null && el.tagName !== 'A') continue;
       var t = (el.textContent || '').replace(/\s+/g, '').trim();
       for (var j = 0; j < kw.length; j++) { if (t === kw[j]) { safeClick(el); return false; } }
     }
@@ -190,47 +166,43 @@
   }
   function clearResumeAction() { try { sessionStorage.removeItem(RESUME_KEY); } catch (e) {} try { window.name = ''; } catch (e) {} }
 
-  // ==================== fish scanning ====================
-
   function scanFishNames() {
     var container = null;
     var all = document.querySelectorAll('div, section, ul, ol, [class*="card"], [class*="fish"], [class*="list"], [class*="grid"], [class*="container"]');
     for (var i = 0; i < all.length; i++) {
       var el = all[i]; if (!el.offsetParent) continue;
       var t = el.textContent || '';
-      if (t.indexOf('\u63a2\u67e5') !== -1 && t.indexOf('\u9c7c') !== -1) {
+      if (t.indexOf('探查') !== -1 && t.indexOf('鱼') !== -1) {
         if (!container || (el.offsetHeight >= 200 && el.offsetHeight < container.offsetHeight)) container = el;
       }
     }
     if (!container) {
       for (var j = 0; j < all.length; j++) {
-        if ((all[j].textContent || '').indexOf('\u63a2\u67e5\u5230\u7684\u9c7c\u7fa4') !== -1) { container = all[j]; break; }
+        if ((all[j].textContent || '').indexOf('探查到的鱼群') !== -1) { container = all[j]; break; }
       }
     }
-    if (!container) { log('未找到"探查到的鱼群"区域', 'warn'); return []; }
+    if (!container) { log('Fish area not found', 'warn'); return []; }
     var origScroll = container.scrollTop;
     for (var s = 0; s < container.scrollHeight; s += 150) container.scrollTop = s;
     container.scrollTop = origScroll;
     var names = new Set();
-    var cards = container.querySelectorAll('[class*="card"], [class*="item"], [class*="fish"], li, .cell, [class*="Cell"], [class*="grid"] > *');
+    var cards = container.querySelectorAll('[class*="card"],[class*="item"],[class*="fish"],li,.cell,[class*="Cell"],[class*="grid"]>*');
     var src = cards.length > 0 ? cards : container.children;
     for (var k = 0; k < src.length; k++) {
       var txt = (src[k].textContent || '').trim();
-      if (txt.length >= 1 && txt.length <= 30 && txt.indexOf('\u63a2\u67e5') === -1) {
-        if (!/^[\d\s.]+$/.test(txt) && !/^(No|HP|Lv|LV|EXP|exp|\u00d7|\d+\/\d+)$/.test(txt)) {
-          names.add(txt);
-        }
+      if (txt.length >= 1 && txt.length <= 30 && txt.indexOf('探查') === -1) {
+        if (!/^[\d\s.]+$/.test(txt) && !/^(No|HP|Lv|LV|EXP|exp|×|\d+\/\d+)$/.test(txt)) names.add(txt);
       }
     }
     if (names.size < 3) {
       var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         var t2 = walker.currentNode.textContent.trim();
-        if (t2.length >= 1 && t2.length <= 15 && /[\u4e00-\u9fff]/.test(t2)) names.add(t2);
+        if (t2.length >= 1 && t2.length <= 15 && /[一-鿿]/.test(t2)) names.add(t2);
       }
     }
     var arr = Array.from(names);
-    log('扫描到 ' + arr.length + ' 种鱼: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
+    log('Scanned ' + arr.length + ' fish: ' + arr.slice(0, 10).join(', ') + (arr.length > 10 ? '...' : ''), 'info');
     return arr;
   }
 
@@ -238,22 +210,19 @@
     var targets = getTargetFish();
     if (!targets.length) return { allFound: false, found: [], missing: [], allFish: [] };
     var all = scanFishNames();
-    var found = [];
-    var missing = [];
+    var found = [], missing = [];
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
       var match = all.find(function (f) { return f.indexOf(t) !== -1 || t.indexOf(f) !== -1; });
       if (match) found.push(t); else missing.push(t);
     }
-    log('目标: ' + targets.join(',') + ' | 找到: ' + (found.join(',') || '无') + ' | 缺少: ' + (missing.join(',') || '无'),
+    log('Target: ' + targets.join(',') + ' | Found: ' + (found.join(',') || 'none') + ' | Miss: ' + (missing.join(',') || 'none'),
       found.length === targets.length ? 'success' : 'warn');
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
 
-  // ==================== ship operations ====================
-
   async function oneClickPrepareAndDepart() {
-    log('一键准备+出航 开始', 'info');
+    log('Prepare+Depart start', 'info');
     if (!(await ensurePage('/region'))) return;
     checkAbort();
     if (!clickPrepare()) return;
@@ -265,26 +234,26 @@
     if (await abortableSleep(CONFIG.actionDelay)) return;
     clickConfirm();
     if (await abortableSleep(CONFIG.longDelay)) return;
-    log('一键准备+出航 完成', 'success');
+    log('Prepare+Depart done', 'success');
   }
 
   async function cancelPrepareIfNeeded() {
     if (!(await ensurePage('/region'))) return false;
     var btn = findButtonByText(BTN.cancel);
     if (btn) {
-      log('检测到准备态，先取消准备...', 'warn');
+      log('Cancelling prep...', 'warn');
       safeClick(btn);
       if (await abortableSleep(CONFIG.actionDelay)) return false;
       clickConfirm();
       if (await abortableSleep(CONFIG.longDelay)) return false;
-      log('已取消准备', 'success');
+      log('Prep cancelled', 'success');
       return true;
     }
     return false;
   }
 
   async function oneClickReturn() {
-    log('一键返航 开始', 'info');
+    log('Return start', 'info');
     await cancelPrepareIfNeeded();
     checkAbort();
     if (!clickReturn()) { await ensurePage('/region'); clickReturn(); }
@@ -294,17 +263,68 @@
     clickConfirm();
     if (await abortableSleep(CONFIG.actionDelay)) return;
     await cancelPrepareIfNeeded();
-    log('一键返航 完成', 'success');
+    log('Return done', 'success');
+  }
+
+  function countCrewOnPage() {
+    var bodyText = document.body.innerText || '';
+    var m1 = bodyText.match(/准备出海\s*[·⋅]\s*(\d+)\s*\/\s*(\d+)\s*人/);
+    if (m1) return { current: parseInt(m1[1]), max: parseInt(m1[2]) };
+    var m2 = bodyText.match(/(\d+)\s*\/\s*(\d+)\s*人(?:和船位)?/);
+    if (m2) return { current: parseInt(m2[1]), max: parseInt(m2[2]) };
+    return null;
+  }
+
+  async function autoBoard() {
+    if (!CONFIG.shipOwnerId) { log('Please enter ship owner ID first', 'error'); return; }
+    log('Auto board start | owner: ' + CONFIG.shipOwnerId, 'info');
+    if (!(await ensurePage('/region'))) return;
+    await sleep(CONFIG.actionDelay);
+    var boatTab = findButtonByText(['船钓']);
+    if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
+    else { log('Boat tab not found', 'error'); return; }
+    log('Searching for ship owner "' + CONFIG.shipOwnerId + '"...', 'info');
+    var found = false;
+    for (var attempt = 0; attempt < 60; attempt++) {
+      checkAbort();
+      var allCards = document.querySelectorAll('[class*="boat"],[class*="ship"],[class*="card"],[class*="item"],[class*="row"],li,tr');
+      for (var i = 0; i < allCards.length; i++) {
+        var el = allCards[i];
+        if (!el.offsetParent) continue;
+        var txt = el.textContent || '';
+        if (txt.indexOf(CONFIG.shipOwnerId) !== -1 && txt.indexOf('上船') !== -1) {
+          var boardBtn = el.querySelector('button');
+          if (!boardBtn) boardBtn = findButtonByText(['上船', '加入', '登船'], el);
+          if (boardBtn) { safeClick(boardBtn); log('Board button clicked', 'success'); found = true; break; }
+        }
+      }
+      if (found) break;
+      await sleep(3000);
+      log('  Searching... (' + (attempt + 1) + '/60)', 'info');
+    }
+    if (!found) { log('Ship not found within 3 minutes', 'error'); return; }
+    await sleep(CONFIG.longDelay);
+    if (CONFIG.minCrew > 1) {
+      log('Waiting for ' + CONFIG.minCrew + ' crew...', 'warn');
+      for (var w = 0; w < 120; w++) {
+        checkAbort();
+        var crew = countCrewOnPage();
+        if (crew && crew.current >= CONFIG.minCrew) { log('Crew reached: ' + crew.current + '/' + crew.max, 'success'); break; }
+        if (crew) log('  Crew: ' + crew.current + '/' + crew.max + ' (need ' + CONFIG.minCrew + ')', 'info');
+        await sleep(3000);
+      }
+    }
+    log('Auto board done', 'success');
   }
 
   async function fullCycle() {
     var targets = getTargetFish();
     var max = CONFIG.maxCycles;
-    if (!targets.length) { log('请先在操作台输入目标鱼名称', 'error'); return; }
-    log('目标鱼循环开始 | 目标: ' + targets.join(',') + ' | 最多 ' + max + ' 轮', 'info');
+    if (!targets.length) { log('Please set target fish first', 'error'); return; }
+    log('Fish loop start: ' + targets.join(',') + ' max=' + max, 'info');
     for (var c = 1; c <= max; c++) {
       checkAbort();
-      log('第 ' + c + '/' + max + ' 轮', 'info');
+      log('Round ' + c + '/' + max, 'info');
       if (!(await ensurePage('/region', 'fullcycle'))) return;
       var tab = findButtonByText(BTN.myShip);
       if (tab) safeClick(tab);
@@ -312,31 +332,40 @@
       await cancelPrepareIfNeeded();
       checkAbort();
       await sleep(CONFIG.actionDelay);
+      if (CONFIG.minCrew > 1) {
+        log('Waiting for ' + CONFIG.minCrew + ' crew...', 'warn');
+        for (var w = 0; w < 200; w++) {
+          checkAbort();
+          var crew = countCrewOnPage();
+          if (crew && crew.current >= CONFIG.minCrew) { log('Crew reached: ' + crew.current + '/' + crew.max, 'success'); break; }
+          if (crew) log('  Crew: ' + crew.current + '/' + crew.max + ' (need ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
+          else log('  No crew info... (' + (w + 1) + '/200)', 'info');
+          await sleep(3000);
+        }
+      }
       await oneClickPrepareAndDepart();
       checkAbort();
       await sleep(CONFIG.longDelay);
-      log('扫描探查到的鱼群...', 'info');
+      log('Scanning fish...', 'info');
       await sleep(1000);
       var result = checkTargetFish();
       if (result.allFound) {
-        log('目标鱼全部找到! (' + result.found.join(',') + ') 停止循环', 'success');
+        log('All target fish found! (' + result.found.join(',') + ') Stopping.', 'success');
         return;
       }
-      log('缺少: ' + result.missing.join(',') + ' - 返航进入下一轮', 'warn');
+      log('Missing: ' + result.missing.join(',') + ' - returning for next round', 'warn');
       await oneClickReturn();
       checkAbort();
       await sleep(CONFIG.longDelay);
       await cancelPrepareIfNeeded();
       await sleep(CONFIG.actionDelay);
     }
-    log('已达最大轮次，目标鱼未找全', 'warn');
+    log('Max cycles reached, target fish not found', 'warn');
     await oneClickReturn();
     await sleep(CONFIG.actionDelay);
     await cancelPrepareIfNeeded();
-    log('目标鱼循环结束', 'info');
+    log('Fish loop ended', 'info');
   }
-
-  // ==================== UI ====================
 
   function setButtonsDisabled(v) {
     var btns = document.querySelectorAll('#lf-buttons .lf-btn:not(#lf-btn-stop)');
@@ -346,7 +375,8 @@
   function persistState() {
     savePanelState({
       top: CONFIG.panelTop, right: CONFIG.panelRight, collapsed: CONFIG.collapsed,
-      targetFishStr: CONFIG.targetFishStr, maxCycles: CONFIG.maxCycles
+      targetFishStr: CONFIG.targetFishStr, maxCycles: CONFIG.maxCycles,
+      shipOwnerId: CONFIG.shipOwnerId, minCrew: CONFIG.minCrew
     });
   }
 
@@ -396,23 +426,28 @@
       '.lf-input-short{width:60px}' +
       '.lf-collapsed .lf-config{display:none}' +
       '</style>' +
-      '<div class="lf-header" id="lf-drag-handle" title="拖拽移动面板">' +
+      '<div class="lf-header" id="lf-drag-handle" title="Drag to move">' +
         '<span class="lf-title">' + CONFIG.panelTitle + '</span>' +
         '<div class="lf-header-controls"><button class="lf-toggle" id="lf-toggle-btn">-</button></div>' +
       '</div>' +
       '<div class="lf-buttons" id="lf-buttons">' +
-        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">⚡ 一键准备+出航</button>' +
-        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">⚡ 一键返航</button>' +
-        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">🔁 目标鱼循环</button>' +
-        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">⏹ 停止</button>' +
+        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">Prepare+Depart</button>' +
+        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">Return</button>' +
+        '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">Fish Loop</button>' +
+        '<button class="lf-btn lf-btn-cycle" id="lf-btn-board" style="background:#0891b2;border-color:#22d3ee">Auto Board</button>' +
+        '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">Stop</button>' +
       '</div>' +
       '<div class="lf-config" id="lf-config">' +
-        '<label class="lf-label">🎯 目标鱼</label>' +
-        '<input class="lf-input" id="lf-target-fish" placeholder="金枪鱼,旗鱼,石斑鱼" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
-        '<label class="lf-label">🔄 最大轮次</label>' +
+        '<label class="lf-label">Target Fish</label>' +
+        '<input class="lf-input" id="lf-target-fish" placeholder="fish1,fish2,fish3" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
+        '<label class="lf-label">Max Cycles</label>' +
         '<input class="lf-input lf-input-short" id="lf-max-cycles" type="number" min="1" max="999" value="' + CONFIG.maxCycles + '">' +
+        '<label class="lf-label">Ship Owner ID</label>' +
+        '<input class="lf-input" id="lf-owner-id" placeholder="owner name" maxlength="50" value="' + (CONFIG.shipOwnerId || '') + '">' +
+        '<label class="lf-label">Min Crew</label>' +
+        '<input class="lf-input lf-input-short" id="lf-min-crew" type="number" min="1" max="99" value="' + CONFIG.minCrew + '">' +
       '</div>' +
-      '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
+      '<div class="lf-status" id="lf-status"><span id="lf-status-text">Ready</span></div>' +
       '<div class="lf-page-indicator" id="lf-page-info">' + window.location.pathname + '</div>';
 
     document.body.appendChild(panel);
@@ -421,7 +456,7 @@
     cbtn.id = 'lf-collapsed-btn';
     cbtn.className = 'btn btn-secondary';
     cbtn.textContent = '\u{1F6A2}';
-    cbtn.title = '展开操作台';
+    cbtn.title = 'Expand';
     document.body.appendChild(cbtn);
 
     applyPosition(panel, cbtn);
@@ -443,12 +478,12 @@
 
     function guard(fn) {
       return async function () {
-        if (busy.v) { log('上一操作仍在执行中', 'warn'); return; }
+        if (busy.v) { log('Already busy', 'warn'); return; }
         abortFlag = false; busy.v = true;
         setButtonsDisabled(true); stopBtn.style.display = 'block';
         try { await fn(); } catch (e) {
-          if (e.message === 'user-abort') log('操作已停止', 'warn');
-          else log('异常: ' + e.message, 'error');
+          if (e.message === 'user-abort') log('Stopped by user', 'warn');
+          else log('Error: ' + e.message, 'error');
         } finally { busy.v = false; abortFlag = false; setButtonsDisabled(false); stopBtn.style.display = 'none'; }
       };
     }
@@ -458,14 +493,20 @@
     document.getElementById('lf-btn-cycle').addEventListener('click', guard(async function () {
       CONFIG.targetFishStr = document.getElementById('lf-target-fish').value.trim();
       CONFIG.maxCycles = parseInt(document.getElementById('lf-max-cycles').value) || 10;
+      CONFIG.shipOwnerId = document.getElementById('lf-owner-id').value.trim();
+      CONFIG.minCrew = parseInt(document.getElementById('lf-min-crew').value) || 1;
       persistState();
       await fullCycle();
     }));
-    stopBtn.addEventListener('click', function () { log('正在停止...', 'warn'); abortFlag = true; });
+    document.getElementById('lf-btn-board').addEventListener('click', guard(async function () {
+      CONFIG.shipOwnerId = document.getElementById('lf-owner-id').value.trim();
+      CONFIG.minCrew = parseInt(document.getElementById('lf-min-crew').value) || 1;
+      persistState();
+      await autoBoard();
+    }));
+    stopBtn.addEventListener('click', function () { log('Stopping...', 'warn'); abortFlag = true; });
 
-    // ===== Drag =====
     var dragging = false, startX, startY, startRight, startTop;
-
     function onDragStart(e) {
       if (e.target.tagName === 'BUTTON' && e.target !== cbtn) return;
       e.preventDefault(); dragging = true;
@@ -492,15 +533,11 @@
       CONFIG.panelTop = rect.top; persistState();
     });
 
-    // ===== Config auto-save =====
-    document.getElementById('lf-target-fish').addEventListener('change', function () {
-      CONFIG.targetFishStr = this.value.trim(); persistState();
-    });
-    document.getElementById('lf-max-cycles').addEventListener('change', function () {
-      CONFIG.maxCycles = parseInt(this.value) || 10; persistState();
-    });
+    document.getElementById('lf-target-fish').addEventListener('change', function () { CONFIG.targetFishStr = this.value.trim(); persistState(); });
+    document.getElementById('lf-max-cycles').addEventListener('change', function () { CONFIG.maxCycles = parseInt(this.value) || 10; persistState(); });
+    document.getElementById('lf-owner-id').addEventListener('change', function () { CONFIG.shipOwnerId = this.value.trim(); persistState(); });
+    document.getElementById('lf-min-crew').addEventListener('change', function () { CONFIG.minCrew = parseInt(this.value) || 1; persistState(); });
 
-    // ===== Collapse =====
     toggleBtn.addEventListener('click', function () {
       if (panel.classList.contains('lf-collapsed')) {
         panel.classList.remove('lf-collapsed'); cbtn.classList.remove('lf-visible');
@@ -518,36 +555,19 @@
     });
   }
 
-  // ==================== init ====================
-
   var lastPath = window.location.pathname;
-  setInterval(function () {
-    var p = window.location.pathname;
-    if (p !== lastPath) { lastPath = p; updatePageInfo(); }
-  }, 1000);
+  setInterval(function () { var p = window.location.pathname; if (p !== lastPath) { lastPath = p; updatePageInfo(); } }, 1000);
 
   function init() {
     try {
-      log('自有船操作台已加载', 'success');
+      log('Ship Ops loaded', 'success');
       createPanel();
-
       var pending = loadResumeAction();
-      if (pending && pending.action === 'fullcycle') {
-        log('检测到未完成的目标鱼循环，自动恢复...', 'warn');
-        clearResumeAction();
-        setTimeout(function () { fullCycle(); }, 2000);
-      }
+      if (pending && pending.action === 'fullcycle') { log('Resuming fish loop...', 'warn'); clearResumeAction(); setTimeout(function () { fullCycle(); }, 2000); }
     } catch (e) { console.error('[LF] Init error:', e); }
   }
 
   var attempts = 0;
-  function tryInit() {
-    attempts++;
-    var root = document.getElementById('root');
-    if (root && root.children.length > 0) init();
-    else if (attempts < 30) setTimeout(tryInit, 1000);
-    else init();
-  }
+  function tryInit() { attempts++; var root = document.getElementById('root'); if (root && root.children.length > 0) init(); else if (attempts < 30) setTimeout(tryInit, 1000); else init(); }
   setTimeout(tryInit, 1500);
-
 })();
