@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.3.2
+// @version      1.3.3
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -224,38 +224,40 @@
   var seaRegionSet = false; // 只在第一次循环时选择海域
 
   async function selectSeaRegion() {
-    if (seaRegionSet) return; // 已经选过海域，不再重复
+    if (seaRegionSet) return;
     var lfSelect = document.getElementById('lf-region-select');
-    var regionName = lfSelect ? lfSelect.options[lfSelect.selectedIndex].text : '';
-    if (!regionName || regionName === '全部海域') return;
+    if (!lfSelect) { log('lf-region-select not found', 'warn'); return false; }
+    var regionName = lfSelect.options[lfSelect.selectedIndex].text;
+    if (!regionName || regionName === '全部海域') { log('no region selected, skip', 'info'); return false; }
     seaRegionSet = true;
 
-    log('选择海域: ' + regionName, 'info');
-    // 在"我的船"页面找到 label 为"海面"的 <select>
-    var labels = document.querySelectorAll('label');
+    log('selectSeaRegion: ' + regionName, 'info');
+    // find <label>海面</label> parent's <select>
     var targetSelect = null;
+    var labels = document.querySelectorAll('label');
     for (var i = 0; i < labels.length; i++) {
       if ((labels[i].textContent || '').trim() === '海面') {
-        // 找到相邻的 select
         targetSelect = labels[i].parentElement.querySelector('select');
         break;
       }
     }
+    // fallback: .form-group.mt-md select
     if (!targetSelect) {
-      log('未找到"海面"选择器', 'warn');
-      return false;
+      var fg = document.querySelector('.form-group.mt-md select');
+      if (fg) targetSelect = fg;
     }
-    // 在选项中找匹配
+    if (!targetSelect) { log('targetSelect not found', 'warn'); return false; }
+
     for (var j = 0; j < targetSelect.options.length; j++) {
       if (targetSelect.options[j].text === regionName) {
         targetSelect.value = targetSelect.options[j].value;
         targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        log('已设置海面为: ' + regionName, 'success');
+        log('sea region set to: ' + regionName, 'success');
         await sleep(CONFIG.actionDelay);
         return true;
       }
     }
-    log('未找到匹配的海面选项: ' + regionName, 'warn');
+    log('region option not found: ' + regionName, 'warn');
     return false;
   }
 
