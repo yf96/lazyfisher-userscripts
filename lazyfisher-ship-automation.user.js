@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.3.1
+// @version      1.3.2
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -231,22 +231,31 @@
     seaRegionSet = true;
 
     log('选择海域: ' + regionName, 'info');
-    // 在"我的船"页面找到游戏自带的海域 <select> 并设置 value
-    var selects = document.querySelectorAll('select');
-    for (var i = 0; i < selects.length; i++) {
-      var s = selects[i];
-      if (!s.offsetParent) continue;
-      for (var j = 0; j < s.options.length; j++) {
-        if (s.options[j].text === regionName) {
-          s.value = s.options[j].value;
-          s.dispatchEvent(new Event('change', { bubbles: true }));
-          log('已设置海域为: ' + regionName, 'success');
-          await sleep(CONFIG.actionDelay);
-          return true;
-        }
+    // 在"我的船"页面找到 label 为"海面"的 <select>
+    var labels = document.querySelectorAll('label');
+    var targetSelect = null;
+    for (var i = 0; i < labels.length; i++) {
+      if ((labels[i].textContent || '').trim() === '海面') {
+        // 找到相邻的 select
+        targetSelect = labels[i].parentElement.querySelector('select');
+        break;
       }
     }
-    log('未找到匹配的海域选项: ' + regionName, 'warn');
+    if (!targetSelect) {
+      log('未找到"海面"选择器', 'warn');
+      return false;
+    }
+    // 在选项中找匹配
+    for (var j = 0; j < targetSelect.options.length; j++) {
+      if (targetSelect.options[j].text === regionName) {
+        targetSelect.value = targetSelect.options[j].value;
+        targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        log('已设置海面为: ' + regionName, 'success');
+        await sleep(CONFIG.actionDelay);
+        return true;
+      }
+    }
+    log('未找到匹配的海面选项: ' + regionName, 'warn');
     return false;
   }
 
