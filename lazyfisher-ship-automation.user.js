@@ -367,13 +367,13 @@
       checkAbort();
       await sleep(CONFIG.actionDelay);
       if (CONFIG.minCrew > 1) {
-        log('Waiting for ' + CONFIG.minCrew + ' crew...', 'warn');
+        log('等待登船人数达到 ' + CONFIG.minCrew + '...', 'warn');
         for (var w = 0; w < 200; w++) {
           checkAbort();
           var crew = countCrewOnPage();
-          if (crew && crew.current >= CONFIG.minCrew) { log('Crew reached: ' + crew.current + '/' + crew.max, 'success'); break; }
-          if (crew) log('  Crew: ' + crew.current + '/' + crew.max + ' (need ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
-          else log('  No crew info... (' + (w + 1) + '/200)', 'info');
+          if (crew && crew.current >= CONFIG.minCrew) { log('登船人数已达 ' + crew.current + '/' + crew.max, 'success'); break; }
+          if (crew) log('  当前登船人数: ' + crew.current + '/' + crew.max + ' (需要 ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
+          else log('  未检测到人数信息... (' + (w + 1) + '/200)', 'info');
           await sleep(3000);
         }
       }
