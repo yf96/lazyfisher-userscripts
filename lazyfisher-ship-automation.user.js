@@ -221,8 +221,6 @@
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
 
-  var seaRegionSet = false; // 只在第一次循环时选择海域
-
   var seaRegionSet = false;
 
   async function selectSeaRegion() {
@@ -395,6 +393,9 @@
       if (!(await ensurePage('/region', 'fullcycle'))) return;
       var tab = findButtonByText(BTN.myShip);
       if (tab) safeClick(tab);
+      await sleep(CONFIG.longDelay);
+      // 首次循环选择海域
+      await selectSeaRegion();
       await sleep(CONFIG.actionDelay);
       await cancelPrepareIfNeeded();
       checkAbort();
