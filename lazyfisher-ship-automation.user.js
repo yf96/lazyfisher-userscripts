@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.4.0
+// @version      1.4.1
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -267,6 +267,11 @@
     return false;
   }
 
+  // checking logic = opposite of selectSeaRegion: if user chose a region, it MUST be set
+  async function ensureSeaRegionSelected() {
+    return await selectSeaRegion(); // returns true if set or skipped (already set / no selection)
+  }
+
   // ==================== ship operations ====================
 
   async function oneClickPrepareAndDepart() {
@@ -275,8 +280,13 @@
     checkAbort();
     var tab = findButtonByText(BTN.myShip);
     if (tab) { safeClick(tab); await sleep(CONFIG.longDelay); }
-    // switch sea region
-    await selectSeaRegion();
+    // switch sea region - must succeed if region selected
+    var regionOK = await ensureSeaRegionSelected();
+    if (!regionOK) {
+      log('海域切换未找到目标选项, 跳过准备', 'warn');
+      seaRegionSet = false; // reset for next attempt
+      return;
+    }
     await sleep(CONFIG.actionDelay);
     if (!clickPrepare()) return;
     if (await abortableSleep(CONFIG.actionDelay)) return;
@@ -390,7 +400,12 @@
       if (tab) safeClick(tab);
       await sleep(CONFIG.longDelay);
       // select sea region on first round only
-      await selectSeaRegion();
+      var regionOK = await ensureSeaRegionSelected();
+      if (!regionOK) {
+        log('海域切换未找到目标选项, 跳过本轮', 'warn');
+        seaRegionSet = false;
+        continue;
+      }
       await sleep(CONFIG.actionDelay);
       await cancelPrepareIfNeeded();
       checkAbort();
