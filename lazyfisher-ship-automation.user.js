@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         LazyFisher Ship Ops V1.1
+// @name         LazyFisher 自有船操作台 V1.1
 // @namespace    https://lazyfisher.toogle.club
 // @version      1.1.0
-// @description  Own ship: prepare/depart/return/cancel + fish loop + auto board
+// @description  自有船一键准备+出航/返航/目标鱼循环/自动上船/船员等待
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] Own ship ops v1.1.0 loaded');
+  console.log('[LazyFisher] 自有船操作台 v1.1.0 已加载');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
