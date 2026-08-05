@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台 V1.2.4
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.2.4
+// @version      1.2.5
 // @description  自有船: 一键准备+出航/返航/目标鱼循环/自动上船(下拉选框切换游戏海域)/船员等待
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -345,6 +345,17 @@
       await cancelPrepareIfNeeded();
       checkAbort();
       await sleep(CONFIG.actionDelay);
+      await cancelPrepareIfNeeded();
+      checkAbort();
+      await sleep(CONFIG.actionDelay);
+
+      // 先点"开始准备"，进入准备态
+      if (!clickPrepare()) { log('未找到准备按钮，跳过本轮', 'error'); continue; }
+      if (await abortableSleep(CONFIG.actionDelay)) return;
+      clickConfirm();
+      await sleep(CONFIG.longDelay);
+
+      // 准备态下等待登船人数达标
       if (CONFIG.minCrew > 1) {
         log('等待登船人数达到 ' + CONFIG.minCrew + '...', 'warn');
         for (var w = 0; w < 200; w++) {
@@ -356,9 +367,12 @@
           await sleep(3000);
         }
       }
-      await oneClickPrepareAndDepart();
-      checkAbort();
-      await sleep(CONFIG.longDelay);
+
+      // 人数够了 → 出航
+      if (!clickDepart()) { log('未找到出航按钮', 'error'); continue; }
+      if (await abortableSleep(CONFIG.actionDelay)) return;
+      clickConfirm();
+      if (await abortableSleep(CONFIG.longDelay)) return;
       log('Scanning fish...', 'info');
       await sleep(1000);
       var result = checkTargetFish();
