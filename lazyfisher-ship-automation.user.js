@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.3.0
+// @version      1.3.1
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -221,21 +221,32 @@
     return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
   }
 
-  async function selectSeaRegion() {
-    var selectEl = document.getElementById('lf-region-select');
-    var regionName = selectEl ? selectEl.options[selectEl.selectedIndex].text : '';
-    if (!regionName || regionName === '全部海域') return; // 未选海域，不切换
+  var seaRegionSet = false; // 只在第一次循环时选择海域
 
-    log('切换海域: ' + regionName, 'info');
-    // 在我的船页面找到海域选择器并点击目标海域
-    var all = document.querySelectorAll('a, button, [role="tab"], [role="option"], li, span, div');
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      if (!el.offsetParent) continue;
-      var t = (el.textContent || '').trim();
-      if (t === regionName) { safeClick(el); log('已选择海域: ' + regionName, 'success'); return true; }
+  async function selectSeaRegion() {
+    if (seaRegionSet) return; // 已经选过海域，不再重复
+    var lfSelect = document.getElementById('lf-region-select');
+    var regionName = lfSelect ? lfSelect.options[lfSelect.selectedIndex].text : '';
+    if (!regionName || regionName === '全部海域') return;
+    seaRegionSet = true;
+
+    log('选择海域: ' + regionName, 'info');
+    // 在"我的船"页面找到游戏自带的海域 <select> 并设置 value
+    var selects = document.querySelectorAll('select');
+    for (var i = 0; i < selects.length; i++) {
+      var s = selects[i];
+      if (!s.offsetParent) continue;
+      for (var j = 0; j < s.options.length; j++) {
+        if (s.options[j].text === regionName) {
+          s.value = s.options[j].value;
+          s.dispatchEvent(new Event('change', { bubbles: true }));
+          log('已设置海域为: ' + regionName, 'success');
+          await sleep(CONFIG.actionDelay);
+          return true;
+        }
+      }
     }
-    log('未找到海域入口: ' + regionName, 'warn');
+    log('未找到匹配的海域选项: ' + regionName, 'warn');
     return false;
   }
 
