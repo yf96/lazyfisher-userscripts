@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台 V1.2.3
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.2.3
+// @version      1.2.4
 // @description  自有船: 一键准备+出航/返航/目标鱼循环/自动上船(下拉选框切换游戏海域)/船员等待
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -471,6 +471,15 @@
           '<option value="boat_leviathan_corridor">巨影海峡船钓之旅</option>' +
           '<option value="boat_epochal_ridge">纪元洋脊船钓之旅</option>' +
           '<option value="crown_current_cape">王流海岬</option>' +
+          '<option value="fissure_cape_outer">风裂岬·外台</option>' +
+          '<option value="blackreef_break">黑礁断面</option>' +
+          '<option value="kelp_shoal">海杉礁·海带浅礁</option>' +
+          '<option value="darktide_platform">玄潮台·海山边缘</option>' +
+          '<option value="stormline_reef">暴线礁·远浪台</option>' +
+          '<option value="abyss_gate_shore">渊门峡·岸投端</option>' +
+          '<option value="blue_current_cliff">蓝潮断岸</option>' +
+          '<option value="night_trench_edge">夜坠海沟缘</option>' +
+          '<option value="epoch_rift_cape">纪元裂岬</option>' +
         '</select>' +
       '</div>' +
       '<div class="lf-status" id="lf-status"><span id="lf-status-text">就绪</span></div>' +
