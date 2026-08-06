@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.4.3
+// @version      1.4.4
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -340,18 +340,16 @@
 
   var autoBoardActive = false;
 
-  // 检查是否已在船上: 页面存在可见的"下船"按钮且不包含"上船"(排除船钓列表中的条目)
+  // 根据用户提供的 DOM: 已上船时页面有"离开船上"按钮, 未上船时有"上船"按钮
+  // 判断逻辑: 找可见按钮文字精确为"离开船上"→已上船; 否则未上船
   function isOnShip() {
-    var allBtns = document.querySelectorAll('button, a, [role="button"]');
+    var allBtns = document.querySelectorAll('button');
     for (var i = 0; i < allBtns.length; i++) {
       var b = allBtns[i];
       if (!b.offsetParent) continue;
       var t = (b.textContent || '').trim();
-      if ((t === '下船' || t === '离开') && t.indexOf('上船') === -1) return true;
+      if (t === '离开船上') return true;
     }
-    // 后备: 页面文字匹配"已登船"或"当前船"
-    var body = document.body.innerText || '';
-    if (body.indexOf('已登船') !== -1) return true;
     return false;
   }
 
