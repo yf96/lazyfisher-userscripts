@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.4.1
+// @version      1.4.2
 // @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -338,53 +338,42 @@
     return null;
   }
 
-  async function autoBoard() {
-    if (!CONFIG.shipOwnerId) { log('请先输入船主ID', 'error'); return; }
-    log('自动上船 | 船主: ' + CONFIG.shipOwnerId, 'info');
-    if (!(await ensurePage('/region'))) return;
-    await sleep(CONFIG.actionDelay);
-    var boatTab = findButtonByText(['船钓']);
-    if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
-    else { log('未找到船钓标签', 'error'); return; }
+  var autoBoardActive = false;
+  function isOnShip() { return !!findButtonByText(['下船', '离开']); }
 
-    var selectEl = document.getElementById('lf-region-select');
-    var selectedValue = selectEl ? selectEl.value : '';
-    log('search sea: ' + (selectedValue || 'all'), 'info');
-
-    var gameSelect = document.querySelector('.boat-list-filter-select');
-    if (gameSelect) {
-      if (selectedValue) {
-        gameSelect.value = selectedValue;
-        gameSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        await sleep(CONFIG.longDelay);
-      } else {
-        gameSelect.value = '__all__';
-        gameSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        await sleep(CONFIG.longDelay);
-      }
-    }
-
-    var found = false;
-    for (var attempt = 0; attempt < 60; attempt++) {
+  async function autoBoardLoop() {
+    log('自动上船监控 启动', 'info'); autoBoardActive = true;
+    while (autoBoardActive) {
       checkAbort();
-      var allCards = document.querySelectorAll('[class*="boat"],[class*="ship"],[class*="card"],[class*="item"],[class*="row"],li,tr');
-      for (var i = 0; i < allCards.length; i++) {
-        var el = allCards[i];
-        if (!el.offsetParent) continue;
-        var txt = el.textContent || '';
-        if (txt.indexOf(CONFIG.shipOwnerId) !== -1 && txt.indexOf('上船') !== -1) {
-          var boardBtn = el.querySelector('button');
-          if (!boardBtn) boardBtn = findButtonByText(['上船', '加入', '登船'], el);
-          if (boardBtn) { safeClick(boardBtn); log('已上船', 'success'); found = true; break; }
+      if (isOnShip()) { await sleep(10000); continue; }
+      if (!(await ensurePage('/region'))) { await sleep(5000); continue; }
+      await sleep(CONFIG.actionDelay);
+      var boatTab = findButtonByText(['船钓']);
+      if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
+      else { await sleep(5000); continue; }
+      var v = (document.getElementById('lf-region-select')||{}).value||'';
+      var gs = document.querySelector('.boat-list-filter-select');
+      if (gs) { gs.value = v || '__all__'; gs.dispatchEvent(new Event('change',{bubbles:true})); await sleep(CONFIG.longDelay); }
+      var found = false;
+      for (var a=0;a<60&&!found;a++) {
+        checkAbort();
+        var cs = document.querySelectorAll('[class*=boat],[class*=ship],[class*=card],[class*=item],[class*=row],li,tr');
+        for (var i=0;i<cs.length;i++) {
+          var el=cs[i]; if (!el.offsetParent) continue;
+          var t=el.textContent||'';
+          if (t.indexOf(CONFIG.shipOwnerId)!==-1 && t.indexOf('上船')!==-1) {
+            var b=el.querySelector('button')||findButtonByText(['上船','加入','登船'],el);
+            if (b) { safeClick(b); log('已上船','success'); found=true; break; }
+          }
         }
+        if (!found) await sleep(3000);
       }
-      if (found) break;
-      await sleep(3000);
-      log('  查找中... (' + (attempt + 1) + '/60)', 'info');
+      if (!found) { log('未找到, 30秒后重试','warn'); await sleep(30000); }
+      else await sleep(CONFIG.longDelay);
     }
-    if (!found) { log('未找到目标船', 'error'); return; }
-    log('自动上船 完成', 'success');
+    log('自动上船监控 已停止','info');
   }
+  function stopAutoBoard() { autoBoardActive = false; abortFlag = true; }
 
   async function fullCycle() {
     var targets = getTargetFish();
@@ -606,7 +595,7 @@
       CONFIG.shipOwnerId = document.getElementById('lf-owner-id').value.trim();
       CONFIG.minCrew = parseInt(document.getElementById('lf-min-crew').value) || 1;
       persistState();
-      await autoBoard();
+      await autoBoardLoop();
     }));
     stopBtn.addEventListener('click', function () { log('停止中...', 'warn'); abortFlag = true; });
 
