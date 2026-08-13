@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
-// @version      1.3.2
+// @version      1.3.3
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -12,7 +12,7 @@
 (function() {
     'use strict';
 
-    // ========== 1. 榧犳爣婊氳疆 鈫?妯悜婊氬姩 ==========
+    // ========== 1. 鼠标滚轮 → 横向滚动 ==========
     document.addEventListener('wheel', function(e) {
         let el = e.target;
         while (el && el !== document.body) {
@@ -25,9 +25,9 @@
         }
     }, { passive: false });
 
-    // ========== 2. 榧犳爣鎸変綇鎷栨嫿 鈫?妯℃嫙瑙︽懜婊戝姩 ==========
+    // ========== 2. 鼠标按住拖拽 → 模拟触摸滑动 ==========
     (function() {
-        const DRAG_THRESHOLD = 3; // 鏈€灏忕Щ鍔ㄥ儚绱狅紝浣庝簬姝ゅ€间笉瑙﹀彂鎷栨嫿锛岄伩鍏嶅奖鍝嶆枃瀛楅€夋嫨
+        const DRAG_THRESHOLD = 3; // 最小移动像素，低于此值不触发拖拽，避免影响文字选择
 
         let isDragging = false;
         let startX = 0;
@@ -40,8 +40,9 @@
                 const hasOverflow = el.scrollWidth > el.clientWidth + 2
                                  || el.scrollHeight > el.clientHeight + 2;
                 if (hasOverflow) {
-                    // 浠呰褰曡捣濮嬩綅缃紝涓嶇珛鍗虫縺娲绘嫋鎷斤紝涓嶈皟鐢?preventDefault
-                    // 鐣欑粰鏂囧瓧閫夋嫨绛夐粯璁よ涓?                    startX = e.clientX;
+                    // 仅记录起始位置，不立即激活拖拽，不调用 preventDefault
+                    // 留给文字选择等默认行为
+                    startX = e.clientX;
                     startY = e.clientY;
                     currentEl = el;
                     isDragging = false;
@@ -57,7 +58,8 @@
             const dy = startY - e.clientY;
 
             if (!isDragging) {
-                // 绉诲姩瓒呰繃闃堝€兼墠婵€娲绘嫋鎷斤紝鍚﹀垯淇濈暀榛樿琛屼负锛堟枃瀛楅€夋嫨锛?                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                // 移动超过阈值才激活拖拽，否则保留默认行为（文字选择）
+                if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
                     return;
                 }
                 isDragging = true;
@@ -81,24 +83,63 @@
         });
     })();
 
-    // ========== 3. 鏂囧瓧鑷姩鎹㈣锛堣В鍐?鈥?鎴柇闂锛?==========
+    // ========== 3. 文字自动换行（解决 … 截断问题） ==========
     const wrapStyle = document.createElement('style');
     wrapStyle.textContent = `
         * {
-            /* 闀垮崟璇?闀挎枃鏈己鍒舵崲琛?*/
+            /* 长单词/长文本强制换行 */
             overflow-wrap: break-word !important;
             word-break: break-word !important;
         }
 
-        /* 瑙ｉ櫎鍗曡鎴柇锛氭妸 nowrap 鈫?normal锛宔llipsis 鈫?clip */
+        /* 解除单行截断：把 nowrap → normal，ellipsis → clip */
         p, span, div, li, td, th, a, label,
         [class*="text"], [class*="desc"], [class*="name"], [class*="title"],
         [class*="content"], [class*="info"], [class*="detail"] {
             white-space: normal !important;
             text-overflow: clip !important;
         }
+
+        /* ===== 恢复例外：注入脚本与 KaTeX 公式 ===== */
+        /* fish-query(lfq-)/prob-calc(lf-) 注入元素：恢复自身样式设计 */
+        [class^="lf-"], [class*=" lf-"] {
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+        }
+
+        /* fish-query 表格数字与标签：恢复 nowrap 设计 */
+        .lfq-fish-table th, .lfq-fish-table td,
+        .lfq-spec-table th, .lfq-spec-table td,
+        .lfq-filter-label, .lfq-msg-badge {
+            white-space: nowrap !important;
+        }
+
+        /* fish-query 省略号标签：恢复 nowrap + ellipsis 截断 */
+        .lfq-card-tag, .lfq-region-info, #lfq-title {
+            white-space: nowrap !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* fish-query 装备槽位表第三列：作者内联 break-all，保持换行 */
+        .lfq-fish-table td[style*="break-all"] {
+            white-space: normal !important;
+            word-break: break-all !important;
+        }
+
+        /* KaTeX 公式：保持单行（帮助页算法公式） */
+        .katex, .katex * {
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+            white-space: nowrap !important;
+        }
+
+        /* 游戏天气行与渔场详情预报面板：数字与时间不拆断 */
+        .region-weather-row span, .weather-icon-row span,
+        .region-forecast-detail, .region-forecast-detail * {
+            white-space: nowrap !important;
+        }
     `;
     document.head.appendChild(wrapStyle);
 
-    console.log('鉁?LazyFisher PC 閫傞厤 v1.3 宸茬敓鏁?);
+    console.log('✅ LazyFisher PC 适配 v1.3.3 已生效');
 })();
