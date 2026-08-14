@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
-// @version      2.0.0
+// @version      2.0.1
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -396,6 +396,80 @@
                 box-sizing: border-box !important;
             }
 
+            /* 装备页下方装备列表：固定卡片尺寸并横向自动换行 */
+            .page-wrapper .card-list:has(> .equipment-item-card) {
+                display: grid !important;
+                grid-template-columns: repeat(auto-fit, 400px) !important;
+                justify-content: flex-start !important;
+                align-content: flex-start !important;
+                align-items: flex-start !important;
+                gap: 8px !important;
+            }
+
+            .page-wrapper .card-list:has(> .equipment-item-card) > .equipment-item-card {
+                width: 400px !important;
+                min-width: 400px !important;
+                max-width: 400px !important;
+                height: 104px !important;
+                min-height: 104px !important;
+                max-height: 104px !important;
+                align-self: flex-start !important;
+                box-sizing: border-box !important;
+                padding: 10px !important;
+            }
+
+            /* 装备名、状态操作、装备参数固定分为三行 */
+            .page-wrapper .equipment-item-card .equipment-item-header {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 4px !important;
+            }
+
+            .page-wrapper .equipment-item-card .equipment-item-name {
+                display: block !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: none !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: clip !important;
+            }
+
+            .card-list:has(> .equipment-item-card) .equipment-item-name {
+                flex: 0 0 auto !important;
+            }
+
+            .page-wrapper .equipment-item-card .equipment-item-header-meta {
+                display: flex !important;
+                flex: 0 0 auto !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                align-items: center !important;
+                gap: 8px !important;
+                white-space: nowrap !important;
+            }
+
+            /* 耐久未满时会出现“维修 n 金”按钮，按钮与备用/耐久/已装备标记均不得折行 */
+            .page-wrapper .equipment-item-card .equipment-item-header-meta > * {
+                flex: 0 0 auto !important;
+                min-width: 0 !important;
+                white-space: nowrap !important;
+            }
+
+            .page-wrapper .equipment-item-card .equipment-inline-action-btn {
+                white-space: nowrap !important;
+                flex: 0 0 auto !important;
+            }
+
+            .page-wrapper .equipment-item-card .equipment-item-stats,
+            .page-wrapper .equipment-item-card .equipment-item-stats .item-stat {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                width: 100% !important;
+                white-space: nowrap !important;
+            }
+
             /* 普通装备描述不截断；卡片本身固定高度并裁切超出内容 */
             .inventory-card-grid .inventory-card-meta {
                 min-width: 0 !important;
@@ -613,6 +687,19 @@
                     min-width: 0 !important;
                     max-width: none !important;
                 }
+
+                .card-list:has(> .equipment-item-card) {
+                    grid-template-columns: minmax(0, 1fr) !important;
+                }
+
+                .card-list:has(> .equipment-item-card) > .equipment-item-card {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    max-width: none !important;
+                    height: 104px !important;
+                    min-height: 104px !important;
+                    max-height: 104px !important;
+                }
         }
 
         /* 卡片宽度足够时，水层至真饵偏好的 9 个参数保持一排 */
@@ -733,5 +820,5 @@
     `;
     document.head.appendChild(wrapStyle);
 
-    console.log('✅ LazyFisher PC 适配 v2.0.0 已生效');
+    console.log('✅ LazyFisher PC 适配 v2.0.1 已生效');
 })();
