@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LazyFisher PC Adapt
 // @namespace    https://lazyfisher.toogle.club/
-// @version      2.0.1
+// @version      2.0.2
 // @description  Horizontal scroll (wheel), drag scroll, text wrap for LazyFisher
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
@@ -12,7 +12,9 @@
 (function() {
     'use strict';
 
-    // ========== 1. 鼠标滚轮 → 横向滚动 ==========
+    // ========== 1. 鼠标滚轮 → 横向滚动（暂时停用） ==========
+    // PC 响应式布局已尽量消除横向溢出；保留实现，后续如需恢复可取消此段注释。
+    /*
     document.addEventListener('wheel', function(e) {
         let el = e.target;
         while (el && el !== document.body) {
@@ -24,6 +26,7 @@
             el = el.parentElement;
         }
     }, { passive: false });
+    */
 
     // ========== 2. 鼠标按住拖拽 → 模拟触摸滑动 ==========
     (function() {
@@ -820,5 +823,5 @@
     `;
     document.head.appendChild(wrapStyle);
 
-    console.log('✅ LazyFisher PC 适配 v2.0.1 已生效');
+    console.log('✅ LazyFisher PC 适配 v2.0.2 已生效');
 })();
