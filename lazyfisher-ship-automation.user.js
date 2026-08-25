@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LazyFisher 自有船操作台
 // @namespace    https://lazyfisher.toogle.club
-// @version      1.4.4
-// @description  Ship Ops - auto prepare/depart/return + target fish loop + auto board
+// @version      1.5.0
+// @description  Ship Ops - target fish loop + blocked fish filter + auto depart
 // @author       yf96
 // @match        https://lazyfisher.toogle.club/*
 // @icon         https://lazyfisher.toogle.club/pwa/fish.svg
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  console.log('[LazyFisher] Ship Ops v1.4.0');
+  console.log('[LazyFisher] Ship Ops v1.5.0');
 
   var STORAGE_KEY = 'lazyfisher_panel_state';
   var RESUME_KEY = 'lazyfisher_resume_action';
@@ -36,13 +36,21 @@
     panelRight: saved.right != null ? saved.right : 16,
     collapsed: saved.collapsed != null ? saved.collapsed : true,
     targetFishStr: saved.targetFishStr || '',
+    blockedFishStr: saved.blockedFishStr || '',
     maxCycles: saved.maxCycles != null ? saved.maxCycles : 10,
-    shipOwnerId: saved.shipOwnerId || '',
-    minCrew: saved.minCrew != null ? saved.minCrew : 1
+    departCrew: saved.departCrew != null ? saved.departCrew : 1
   };
 
   function getTargetFish() {
-    return CONFIG.targetFishStr
+    return parseFishList(CONFIG.targetFishStr);
+  }
+
+  function getBlockedFish() {
+    return parseFishList(CONFIG.blockedFishStr);
+  }
+
+  function parseFishList(value) {
+    return (value || '')
       .split(/[,，、\s]+/)
       .map(function (s) { return s.trim(); })
       .filter(function (s) { return s.length > 0; })
@@ -208,17 +216,23 @@
 
   function checkTargetFish() {
     var targets = getTargetFish();
-    if (!targets.length) return { allFound: false, found: [], missing: [], allFish: [] };
+    var blocked = getBlockedFish();
+    if (!targets.length) return { allFound: false, found: [], missing: [], blockedFound: [], allFish: [] };
     var all = scanFishNames();
-    var found = [], missing = [];
+    var found = [], missing = [], blockedFound = [];
     for (var i = 0; i < targets.length; i++) {
       var t = targets[i];
-      var match = all.find(function (f) { return f.indexOf(t) !== -1 || t.indexOf(f) !== -1; });
+      // 鱼名必须完全相等；例如“褐石斑”不能匹配“巨型褐石斑”。
+      var match = all.find(function (f) { return f === t; });
       if (match) found.push(t); else missing.push(t);
     }
-    log('Target: ' + targets.join(',') + ' | Found: ' + (found.join(',') || 'none') + ' | Miss: ' + (missing.join(',') || 'none'),
-      found.length === targets.length ? 'success' : 'warn');
-    return { allFound: missing.length === 0, found: found, missing: missing, allFish: all };
+    for (var j = 0; j < blocked.length; j++) {
+      if (all.indexOf(blocked[j]) !== -1) blockedFound.push(blocked[j]);
+    }
+    log('目标：' + targets.join(',') + ' | 找到：' + (found.join(',') || '无') + ' | 缺少：' + (missing.join(',') || '无') +
+      ' | 屏蔽鱼出现：' + (blockedFound.join(',') || '无'),
+      missing.length === 0 && blockedFound.length === 0 ? 'success' : 'warn');
+    return { allFound: missing.length === 0 && blockedFound.length === 0, found: found, missing: missing, blockedFound: blockedFound, allFish: all };
   }
 
   // ==================== sea region select ====================
@@ -274,32 +288,6 @@
 
   // ==================== ship operations ====================
 
-  async function oneClickPrepareAndDepart() {
-    log('Prepare+Depart start', 'info');
-    if (!(await ensurePage('/region'))) return;
-    checkAbort();
-    var tab = findButtonByText(BTN.myShip);
-    if (tab) { safeClick(tab); await sleep(CONFIG.longDelay); }
-    // switch sea region - must succeed if region selected
-    var regionOK = await ensureSeaRegionSelected();
-    if (!regionOK) {
-      log('海域切换未找到目标选项, 跳过准备', 'warn');
-      seaRegionSet = false; // reset for next attempt
-      return;
-    }
-    await sleep(CONFIG.actionDelay);
-    if (!clickPrepare()) return;
-    if (await abortableSleep(CONFIG.actionDelay)) return;
-    clickConfirm();
-    if (await abortableSleep(CONFIG.longDelay)) return;
-    checkAbort();
-    if (!clickDepart()) return;
-    if (await abortableSleep(CONFIG.actionDelay)) return;
-    clickConfirm();
-    if (await abortableSleep(CONFIG.longDelay)) return;
-    log('Prepare+Depart done', 'success');
-  }
-
   async function cancelPrepareIfNeeded() {
     if (!(await ensurePage('/region'))) return false;
     var btn = findButtonByText(BTN.cancel);
@@ -338,61 +326,35 @@
     return null;
   }
 
-  var autoBoardActive = false;
-
-  // 根据用户提供的 DOM: 已上船时页面有"离开船上"按钮, 未上船时有"上船"按钮
-  // 判断逻辑: 找可见按钮文字精确为"离开船上"→已上船; 否则未上船
-  function isOnShip() {
-    var allBtns = document.querySelectorAll('button');
-    for (var i = 0; i < allBtns.length; i++) {
-      var b = allBtns[i];
-      if (!b.offsetParent) continue;
-      var t = (b.textContent || '').trim();
-      if (t === '离开船上') return true;
-    }
-    return false;
-  }
-
-  async function autoBoardLoop() {
-    log('自动上船监控 启动', 'info'); autoBoardActive = true;
-    while (autoBoardActive) {
+  async function autoDepartWhenCrewReady() {
+    var required = CONFIG.departCrew;
+    log('自动开船监控启动：达到 ' + required + ' 人后开船', 'info');
+    if (!(await ensurePage('/region'))) return;
+    for (;;) {
       checkAbort();
-      if (isOnShip()) { await sleep(10000); continue; }
-      if (!(await ensurePage('/region'))) { await sleep(5000); continue; }
-      await sleep(CONFIG.actionDelay);
-      var boatTab = findButtonByText(['船钓']);
-      if (boatTab) { safeClick(boatTab); await sleep(CONFIG.longDelay); }
-      else { await sleep(5000); continue; }
-      var v = (document.getElementById('lf-region-select')||{}).value||'';
-      var gs = document.querySelector('.boat-list-filter-select');
-      if (gs) { gs.value = v || '__all__'; gs.dispatchEvent(new Event('change',{bubbles:true})); await sleep(CONFIG.longDelay); }
-      var found = false;
-      for (var a=0;a<60&&!found;a++) {
-        checkAbort();
-        var cs = document.querySelectorAll('[class*=boat],[class*=ship],[class*=card],[class*=item],[class*=row],li,tr');
-        for (var i=0;i<cs.length;i++) {
-          var el=cs[i]; if (!el.offsetParent) continue;
-          var t=el.textContent||'';
-          if (t.indexOf(CONFIG.shipOwnerId)!==-1 && t.indexOf('上船')!==-1) {
-            var b=el.querySelector('button')||findButtonByText(['上船','加入','登船'],el);
-            if (b) { safeClick(b); log('已上船','success'); found=true; break; }
-          }
-        }
-        if (!found) await sleep(3000);
+      var crew = countCrewOnPage();
+      if (crew && crew.current >= required) {
+        log('人数达标：' + crew.current + '/' + crew.max + '，正在开船', 'success');
+        if (!clickDepart()) { log('出航按钮未找到，请确认仍在准备阶段', 'error'); return; }
+        if (await abortableSleep(CONFIG.actionDelay)) return;
+        clickConfirm();
+        if (await abortableSleep(CONFIG.longDelay)) return;
+        log('已点击开船', 'success');
+        return;
       }
-      if (!found) { log('未找到, 30秒后重试','warn'); await sleep(30000); }
-      else await sleep(CONFIG.longDelay);
+      if (crew) log('等待船员：' + crew.current + '/' + crew.max + '（需 ' + required + '）', 'info');
+      else log('未读取到准备阶段人数，请保持在自有船准备页面', 'warn');
+      if (await abortableSleep(3000)) return;
     }
-    log('自动上船监控 已停止','info');
   }
-  function stopAutoBoard() { autoBoardActive = false; abortFlag = true; }
 
   async function fullCycle() {
     var targets = getTargetFish();
+    var blocked = getBlockedFish();
     var max = CONFIG.maxCycles;
     if (!targets.length) { log('请设置目标鱼', 'error'); return; }
     resetSeaRegion(); // allow region switch on first round
-    log('Fish loop start: ' + targets.join(',') + ' max=' + max, 'info');
+    log('Fish loop start: ' + targets.join(',') + (blocked.length ? ' | block: ' + blocked.join(',') : '') + ' max=' + max, 'info');
     for (var c = 1; c <= max; c++) {
       checkAbort();
       log('Round ' + c + '/' + max, 'info');
@@ -417,18 +379,6 @@
       clickConfirm();
       await sleep(CONFIG.longDelay);
 
-      if (CONFIG.minCrew > 1) {
-        log('等船员 ' + CONFIG.minCrew + '...', 'warn');
-        for (var w = 0; w < 200; w++) {
-          checkAbort();
-          var crew = countCrewOnPage();
-          if (crew && crew.current >= CONFIG.minCrew) { log('船员达标: ' + crew.current + '/' + crew.max, 'success'); break; }
-          if (crew) log('  船员: ' + crew.current + '/' + crew.max + ' (需 ' + CONFIG.minCrew + ') ' + (w + 1) + '/200', 'info');
-          else log('  无船员信息... (' + (w + 1) + '/200)', 'info');
-          await sleep(3000);
-        }
-      }
-
       if (!clickDepart()) { log('出航按钮未找到', 'error'); continue; }
       if (await abortableSleep(CONFIG.actionDelay)) return;
       clickConfirm();
@@ -437,10 +387,11 @@
       await sleep(1000);
       var result = checkTargetFish();
       if (result.allFound) {
-        log('All target fish found! (' + result.found.join(',') + ')', 'success');
+        log('目标鱼已全部找到，且没有屏蔽鱼：' + result.found.join(','), 'success');
         return;
       }
-      log('Missing: ' + result.missing.join(',') + ' - return', 'warn');
+      if (result.blockedFound.length) log('屏蔽鱼出现：' + result.blockedFound.join(',') + '，返航重试', 'warn');
+      else log('缺少目标鱼：' + result.missing.join(',') + '，返航重试', 'warn');
       await oneClickReturn();
       checkAbort();
       await sleep(CONFIG.longDelay);
@@ -462,8 +413,8 @@
   function persistState() {
     savePanelState({
       top: CONFIG.panelTop, right: CONFIG.panelRight, collapsed: CONFIG.collapsed,
-      targetFishStr: CONFIG.targetFishStr, maxCycles: CONFIG.maxCycles,
-      shipOwnerId: CONFIG.shipOwnerId, minCrew: CONFIG.minCrew
+      targetFishStr: CONFIG.targetFishStr, blockedFishStr: CONFIG.blockedFishStr,
+      maxCycles: CONFIG.maxCycles, departCrew: CONFIG.departCrew
     });
   }
 
@@ -500,9 +451,8 @@
       '.lf-btn:hover{filter:brightness(1.15)}' +
       '.lf-btn:active{filter:brightness(0.85)}' +
       '.lf-btn:disabled{opacity:0.4;cursor:not-allowed;filter:none}' +
-      '.lf-btn-prepare{background:#0d9488;border-color:#2dd4bf}' +
-      '.lf-btn-return{background:#c2410c;border-color:#fb923c}' +
       '.lf-btn-cycle{background:#7c3aed;border-color:#a78bfa}' +
+      '.lf-btn-depart{background:#0d9488;border-color:#2dd4bf}' +
       '.lf-btn-stop{background:#dc2626;border-color:#f87171}' +
       '.lf-status{margin-top:8px;padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;font-size:11px;color:#94a3b8;min-height:18px;word-break:break-all}' +
       '.lf-page-indicator{font-size:10px;color:#64748b;margin-top:4px;text-align:center}' +
@@ -518,21 +468,19 @@
         '<div class="lf-header-controls"><button class="lf-toggle" id="lf-toggle-btn">-</button></div>' +
       '</div>' +
       '<div class="lf-buttons" id="lf-buttons">' +
-        '<button class="lf-btn lf-btn-prepare" id="lf-btn-onestep">⚡ 一键准备+出航</button>' +
-        '<button class="lf-btn lf-btn-return" id="lf-btn-return-only">⚡ 一键返航</button>' +
         '<button class="lf-btn lf-btn-cycle" id="lf-btn-cycle">🔁 目标鱼循环</button>' +
-        '<button class="lf-btn lf-btn-cycle" id="lf-btn-board" style="background:#0891b2;border-color:#22d3ee">⚓ 自动上船</button>' +
+        '<button class="lf-btn lf-btn-depart" id="lf-btn-auto-depart">🚢 自动开船</button>' +
         '<button class="lf-btn lf-btn-stop" id="lf-btn-stop" style="display:none">⏹ 停止</button>' +
       '</div>' +
       '<div class="lf-config" id="lf-config">' +
         '<label class="lf-label">🎯 目标鱼</label>' +
-        '<input class="lf-input" id="lf-target-fish" placeholder="金枪鱼,旗鱼,石斑鱼" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
+        '<input class="lf-input" id="lf-target-fish" placeholder="输入完整鱼名使用逗号、顿号、空格分隔" maxlength="100" value="' + CONFIG.targetFishStr + '">' +
+        '<label class="lf-label">🚫 屏蔽鱼（出现任一鱼种即继续循环）</label>' +
+        '<input class="lf-input" id="lf-blocked-fish" placeholder="输入完整鱼名使用逗号、顿号、空格分隔" maxlength="100" value="' + CONFIG.blockedFishStr + '">' +
         '<label class="lf-label">🔄 最大轮次</label>' +
         '<input class="lf-input lf-input-short" id="lf-max-cycles" type="number" min="1" max="999" value="' + CONFIG.maxCycles + '">' +
-        '<label class="lf-label">👤 船主ID</label>' +
-        '<input class="lf-input" id="lf-owner-id" placeholder="船主名字" maxlength="50" value="' + (CONFIG.shipOwnerId || '') + '">' +
-        '<label class="lf-label">👥 最低登船人数</label>' +
-        '<input class="lf-input lf-input-short" id="lf-min-crew" type="number" min="1" max="99" value="' + CONFIG.minCrew + '">' +
+        '<label class="lf-label">👥 自动开船人数（准备后使用）</label>' +
+        '<input class="lf-input lf-input-short" id="lf-depart-crew" type="number" min="1" max="99" value="' + CONFIG.departCrew + '">' +
         '<label class="lf-label">🌊 搜索海域</label>' +
         '<select class="lf-input" id="lf-region-select" style="color:#e2e8f0">' +
           '<option value="">全部海域</option>' +
@@ -544,6 +492,7 @@
           '<option value="stormline_reef">暴线礁·远浪台</option>' +
           '<option value="boat_crimson_trench">赤湾深槽船钓之旅</option>' +
           '<option value="hadal_canyon_gate">渊门峡·岸投端</option>' +
+          '<option value="arctic_shelf_edge">北境冰缘·陆架软底</option>' +
           '<option value="bluecurrent_fault_bank">蓝潮断岸</option>' +
           '<option value="crown_current_cape">王流海岬</option>' +
           '<option value="nightfall_trench_rim">夜坠海沟缘</option>' +
@@ -593,21 +542,17 @@
       };
     }
 
-    document.getElementById('lf-btn-onestep').addEventListener('click', guard(oneClickPrepareAndDepart));
-    document.getElementById('lf-btn-return-only').addEventListener('click', guard(oneClickReturn));
     document.getElementById('lf-btn-cycle').addEventListener('click', guard(async function () {
       CONFIG.targetFishStr = document.getElementById('lf-target-fish').value.trim();
+      CONFIG.blockedFishStr = document.getElementById('lf-blocked-fish').value.trim();
       CONFIG.maxCycles = parseInt(document.getElementById('lf-max-cycles').value) || 10;
-      CONFIG.shipOwnerId = document.getElementById('lf-owner-id').value.trim();
-      CONFIG.minCrew = parseInt(document.getElementById('lf-min-crew').value) || 1;
       persistState();
       await fullCycle();
     }));
-    document.getElementById('lf-btn-board').addEventListener('click', guard(async function () {
-      CONFIG.shipOwnerId = document.getElementById('lf-owner-id').value.trim();
-      CONFIG.minCrew = parseInt(document.getElementById('lf-min-crew').value) || 1;
+    document.getElementById('lf-btn-auto-depart').addEventListener('click', guard(async function () {
+      CONFIG.departCrew = parseInt(document.getElementById('lf-depart-crew').value) || 1;
       persistState();
-      await autoBoardLoop();
+      await autoDepartWhenCrewReady();
     }));
     stopBtn.addEventListener('click', function () { log('停止中...', 'warn'); abortFlag = true; });
 
@@ -639,9 +584,9 @@
     });
 
     document.getElementById('lf-target-fish').addEventListener('change', function () { CONFIG.targetFishStr = this.value.trim(); persistState(); });
+    document.getElementById('lf-blocked-fish').addEventListener('change', function () { CONFIG.blockedFishStr = this.value.trim(); persistState(); });
     document.getElementById('lf-max-cycles').addEventListener('change', function () { CONFIG.maxCycles = parseInt(this.value) || 10; persistState(); });
-    document.getElementById('lf-owner-id').addEventListener('change', function () { CONFIG.shipOwnerId = this.value.trim(); persistState(); });
-    document.getElementById('lf-min-crew').addEventListener('change', function () { CONFIG.minCrew = parseInt(this.value) || 1; persistState(); });
+    document.getElementById('lf-depart-crew').addEventListener('change', function () { CONFIG.departCrew = parseInt(this.value) || 1; persistState(); });
 
     toggleBtn.addEventListener('click', function () {
       if (panel.classList.contains('lf-collapsed')) {
@@ -665,7 +610,7 @@
 
   function init() {
     try {
-      log('Ship Ops v1.4.0 loaded', 'success');
+      log('Ship Ops v1.5.0 loaded', 'success');
       createPanel();
       var pending = loadResumeAction();
       if (pending && pending.action === 'fullcycle') { log('Resuming fish loop...', 'warn'); clearResumeAction(); setTimeout(function () { fullCycle(); }, 2000); }
